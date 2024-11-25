@@ -1,0 +1,150 @@
+location,description
+1A1,18650 battery holders
+1A1,18650 LiPo batteries
+1A2,STM32 development board
+1A3,Raspberry Pi Pico
+1A4,Miscellaneous nuts (hardware)
+1A5,misc screws and bolts
+1A6,misc washers
+1B1,zip ties
+1B2,misc foam
+1B3,"Miscellaneous connectors, alligator clips, banana plugs"
+1B4,"Miscellaneous small hardware, chain links, roll pins, circle clips"
+1B5,tube and pipe fittings and plugs
+1B6,silicone wires
+1C1,quadcopter battery straps
+1C2,JST RCY male and female connectors with wires
+1C3,Tyco header and housing connectors
+1C4,"Bluetooth adapters, modules, and development boards"
+1C5,AA batteries
+1C6,solid wires
+1D1,solder supplies
+1D2,Molex 2.54mm (0.1 in) pitch header and housing connectors
+1D3,Molex 2.54mm (0.1 in) pitch header and housing connectors
+1D4,long twist ties
+1D5,shrink tube and braided wire looms/sleeves
+1D6,stranded wires
+2A1,"pop rivets, solid rivets, and clevis pins"
+2A2,short twist ties
+2A3,"bushings, springs, spacers and key rings"
+2A4,adhesive wall hooks and tie points
+2A5,small screws and computer screws and computer expansion port fillers
+2A6,sheet metal screws
+2A7,grommets and o-rings
+2A8,rubber parts
+2B1,"potentially faulty quadcopter flight controllers, receivers, brushed motors, and other parts"
+2B2,JST SH connectors
+2B3,solid state AC relays
+2B4,small socket head and button head cap screws
+2B5,standoffs
+2C1,light bulbs
+2C2,switches
+2C3,mercury switches
+2C4,terminal strips
+2C5,fuse holders
+2D1,coin cell battery holder
+2D2,ferrite beads
+2D6,flat 10 conductor ribbon cable
+2D7,long solid jumper wires
+2E1,small grey and beige wire nuts
+2E2,yellow and orange wire nuts
+2E3,"large grey, green, red, and beige wire nuts"
+2E4,jumpers
+2E5,XT30 connectors
+2E6,XT60 connectors
+2E7,JST XH connectors
+2E8,defective DC-DC converter with large heat sinks
+2F1,red female quick connect crimp on connectors
+2F2,red male quick connect crimp on connectors
+2F3,red ring crimp on connectors
+2F4,red spade crimp on connectors
+2F5,red splice crimp on connectors
+2G1,blue female quick connect crimp on connectors
+2G2,blue male quick connect crimp on connectors
+2G3,blue ring crimp on connectors
+2G4,blue spade crimp on connectors
+2G5,blue splice crimp on connectors
+2H1,yellow female quick connect crimp on connectors
+2H2,yellow male quick connect crimp on connectors
+2H3,yellow ring crimp on connectors
+2H4,yellow spade crimp on connectors
+4A1,small electrolytic and ceramic capacitor
+4A2,103K 0.01uF ceramic capacitors
+4A3,104K 0.1uF tantalum capacitors
+4A3,1uF tantalum capacitors
+4A4,0.33uF tantalum capacitors
+4A4,100uF electrolytic capacitors
+4A5,large electrolytic capacitors
+4C1,10R resistors (brown-black-black)
+4C2,100R resistors (brown-black-brown)
+4C2,150k resistors (brown-green-brown)
+4C2,47R resistors (yellow-purple-black)
+4C3,390R resistors (orange-wite-brown)
+4C4,24R resistors (red-yellow-black)
+4C4,270R resistors (red-purple-brown)
+4C5,330R resistors (orange-orange-brown)
+4C5,470R resistors (yellow-purple-brown)
+4C6,510R resistors (green-brown-brown)
+4C7,1k resistors (brown-black-red)
+4C7,2.2k resistors (red-red-red)
+4C8,3.3k resistors (orange-orange-red)
+4C8,4.7k resistors (yellow-purple-red)
+4D1,10k resistors (brown-black-orange)
+4D1,15k resistors (brown-green-orange)
+4D2,100k resistors (brown-black-yellow)
+4D2,59k resistors (green-white-black-red)
+4D3,1M resistors (brown-black-green)
+4D4,unsorted resistors
+4D8,potentiometrs (variable resistors)
+4E1,"USB to serial converters (FTDI, LC231X, etc.)"
+4E2,hobby servos
+4E3,"IMUs (MPU-6050, MPU-9250, BNO055, etc.)"
+4E4,GPS modules
+4E4,microphones
+4E5,Microchip PICkit 2 programmer/debugger
+4E5,SWD adapter cables
+4E6,MPL315A2 i2c barometric sensor adafruit part number 1893
+4E7,ESP32-PICO-KIT-V4 microcontroller
+4F1,LEDs
+4F2,1N4003 diodes
+4F2,1N4148TR diodes
+4F3,1N4003 diodes
+4F3,1N5404 diodes
+4F4,power diodes
+4F5,1N916 diodes
+4G1,2N2222A transistors
+4G1,2N2907 transistors
+4G2,2N2270 transistors
+4G2,2N3055 transistors
+4G3,2N3904 transistors
+4G3,2N3906 transistors
+4G4,MMBT3904LT1G transistors
+4G5,AN7905 regulator
+4G5,L7805ACV 5V regulator
+4G6,AN7806 6V regulator
+4G6,AN7810 10V regulator
+4G7,AN7812 12V regulator
+4G8,X44H384 unknown power components
+4H1,74HC244 tri state octal line driver ICs
+4H1,74HC373 tri state octal D flip-flop ICs
+4H1,74LS374 tri state octal dual flip-flop ICs
+4H2,339 op-amp ICs
+4H2,555 timer ICs
+4H2,741 op-amp ICs
+4H2,ADC0808CCN analog to digital converter IC
+4H2,DAC0808LCN digital to analog converter IC
+4H3,A 2631 opto-coupler IC
+4H3,DIP IC sockets
+4H4,PIC16F627 microcontroller
+4H4,PIC16F88 microcontroller
+4H5,7805SR-C switching regulator
+4H5,MAX232EPE serial line driver
+4H5,OKI-78SR-3.3/1.5-W36-C 3.3V switching regulator
+4H5,OKI-78SR-5/1.5-W36-C 5V switching regulator
+4H6,7404 hex inverter ICs
+4H6,7406 hex inverter ICs
+4H6,7430 8 input AND gate ICs
+4H6,7432 quad 2 input or gate ICs
+4H6,DM7400N quad 2 input nand gate ICs
+4H7,CSTLS44M00G53-B0 4MHz ceramic resonator
+4H8,miscellaneous discrete components

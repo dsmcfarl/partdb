@@ -1,0 +1,4 @@
+/backup*/
+*.egg-info/
+__pycache__/
+/build/
