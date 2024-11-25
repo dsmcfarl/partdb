@@ -1,8 +1,11 @@
-from typing import Optional
+from typing import Optional, List
 import click
 import psycopg
 from psycopg import sql
 import os
+
+from openai import OpenAI
+
 
 DBNAME = "partdb"
 DBUSER = "partdb"
@@ -33,9 +36,11 @@ def add(location: str, description: Optional[str] = None) -> None:
                 (location,),
             )
             if description:
+                client = OpenAI()
+                embedding = _get_embedding(client, description)
                 cur.execute(
-                    "INSERT INTO parts (description, location) VALUES (%s, %s)",
-                    (description, location),
+                    "INSERT INTO parts (description, location, embedding) VALUES (%s, %s, %s)",
+                    (description, location, embedding),
                 )
 
 
@@ -285,8 +290,11 @@ def update(id: int, description: str) -> None:
     """
     with psycopg.connect("service=partdb") as conn:
         with conn.cursor() as cur:
+            client = OpenAI()
+            embedding = _get_embedding(client, description)
             cur.execute(
-                "UPDATE parts SET description = %s WHERE id = %s", (description, id)
+                "UPDATE parts SET description = %s, embedding = %s WHERE id = %s",
+                (description, embedding, id),
             )
 
 
@@ -296,7 +304,6 @@ def update_embeddings():
     Update the embeddings for all parts.
     """
     click.echo("updating embeddings")
-    from openai import OpenAI
 
     client = OpenAI()
     with psycopg.connect("service=partdb") as conn:
@@ -304,14 +311,19 @@ def update_embeddings():
             cur.execute("SELECT id, description FROM parts")
             with click.progressbar(cur.fetchall()) as bar:
                 for part_row in bar:
-                    response = client.embeddings.create(
-                        input=part_row[1].replace("\n", " ")[:8191],
-                        model="text-embedding-3-small",
-                    )
+                    embedding = _get_embedding(client, part_row[1])
                     cur.execute(
                         "UPDATE parts SET embedding = %s WHERE id = %s",
-                        (response.data[0].embedding, part_row[0]),
+                        (embedding, part_row[0]),
                     )
+
+
+def _get_embedding(client: OpenAI, description: str) -> List[float]:
+    response = client.embeddings.create(
+        input=description.replace("\n", " ")[:8191],
+        model="text-embedding-3-small",
+    )
+    return response.data[0].embedding
 
 
 def _validate_path(path: Optional[str], mkdir: bool = False) -> tuple[str, str]:
