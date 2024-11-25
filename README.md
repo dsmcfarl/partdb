@@ -4,8 +4,11 @@ A tool for keeping track of where parts are stored. This tool is optimzed for us
 
 ## Features
 
-* Keep track of parts and their locations
-* Search for parts using either full text or semantic (vector) search by part description
+- [x] Keep track of parts and their locations
+- [x] Simple data model. Parts and locations: more than one part can be at a location.
+- [x] No extensive metadata. Parts have a description; locations have a name which must be unique.
+- [x] Search for parts using either full text or semantic (vector) search by part description
+- [ ] Intelligent location suggestions when adding a part. Suggests location of similar items.
 
 ## Requirements
 
