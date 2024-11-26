@@ -255,11 +255,32 @@ def search(full_text, description):
         with psycopg.connect("service=partdb") as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "SELECT id, description, location FROM parts WHERE to_tsvector(description) @@ websearch_to_tsquery(%s)",
+                    """
+                    SELECT id, description, location,
+                    (
+                      SELECT name
+                      FROM locations
+                      WHERE name < p.location
+                      AND NOT EXISTS (SELECT 1 FROM parts WHERE location = name)
+                      ORDER BY name DESC
+                      LIMIT 1
+                    ) AS prev_empty,
+                    (
+                      SELECT name
+                      FROM locations
+                      WHERE name > p.location
+                      AND NOT EXISTS (SELECT 1 FROM parts WHERE location = name)
+                      ORDER BY name
+                      LIMIT 1
+                    ) AS next_empty
+                    FROM parts p WHERE to_tsvector(description) @@ websearch_to_tsquery(%s)
+                    """,
                     (description,),
                 )
                 for row in cur.fetchall():
-                    click.echo(f"{row[2]}: {row[1]} (id={row[0]})")
+                    click.echo(
+                        f"{row[2]}: {row[1]} (id={row[0]}, empty={row[3]},{row[4]})"
+                    )
     else:
         from openai import OpenAI
 
@@ -271,11 +292,32 @@ def search(full_text, description):
         with psycopg.connect("service=partdb") as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "SELECT id, description, location, embedding <=> %s AS distance FROM parts ORDER BY distance LIMIT 10",
+                    """
+                    SELECT id, description, location, embedding <=> %s AS distance,
+                    (
+                      SELECT name
+                      FROM locations
+                      WHERE name < p.location
+                      AND NOT EXISTS (SELECT 1 FROM parts WHERE location = name)
+                      ORDER BY name DESC
+                      LIMIT 1
+                    ) AS prev_empty,
+                    (
+                      SELECT name
+                      FROM locations
+                      WHERE name > p.location
+                      AND NOT EXISTS (SELECT 1 FROM parts WHERE location = name)
+                      ORDER BY name
+                      LIMIT 1
+                    ) AS next_empty
+                    FROM parts p ORDER BY distance LIMIT 10
+                    """,
                     (str(embedding),),
                 )
                 for row in cur.fetchall():
-                    click.echo(f"{row[2]}: {row[1]} (id={row[0]}, dist={row[3]:.3f})")
+                    click.echo(
+                        f"{row[2]}: {row[1]} (id={row[0]}, dist={row[3]:.3f}, empty={row[4]},{row[5]})"
+                    )
 
 
 @cli.command()
