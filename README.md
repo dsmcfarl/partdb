@@ -1,119 +1,170 @@
-# partdb
+# PartDB
 
-A tool for keeping track of where parts are stored. This tool is optimzed for use by hobbyists and is not intended as an inventory management system for businesses. For example, it does not even try to keep track of quantities.
+PartDB records which workshop parts are stored in which physical locations. It is intended for a personal workshop: a location has a unique name, several parts may share one location, and quantities are deliberately not tracked.
 
-## Features
+The CLI supports offline inventory work, PostgreSQL full-text search, optional semantic search, data-quality auditing, and explicit physical verification of bins.
 
-- [x] Keep track of parts and their locations
-- [x] Simple data model. Parts and locations: more than one part can be at a location.
-- [x] No extensive metadata. Parts have a description; locations have a name which must be unique.
-- [x] Search for parts using either full text or semantic (vector) search by part description
-- [ ] Intelligent location suggestions when adding a part. Suggests location of similar items.
+## Local Setup
 
-## Requirements
+Requirements:
 
-- An OpenAI API key for creating embeddings of part descriptions; environment variable `OPENAI_API_KEY` must be set and exported.
-- A PostgreSQL database server with the pgvector extension available; e.g.,[pgvector docker image](https://hub.docker.com/r/ankane/pgvector).
-- a [~/.pg_service.conf](https://www.postgresql.org/docs/current/libpq-pgservice.html) file with a `partdb` service and a `partdb-superuser` service configured and [~/.pgpass](https://www.postgresql.org/docs/current/libpq-pgpass.html) file if appropriate (not required if pg_hba.conf is configured to trust local users for example). An example `~/.pg_service.conf` file is shown below. The user and dbname for the `partdb` service must be `partdb`. The user and dbname for the `partdb-superuser` service must be a postgresql user that has superuser rights.
+- Docker with Compose
+- [`uv`](https://docs.astral.sh/uv/)
+- [`just`](https://just.systems/) for the convenience recipes
 
-Example `~/.pg_service.conf` file:
-```
-[partdb]
-host=127.0.0.1
-port=5435
-user=partdb
-dbname=partdb
-
-[partdb-superuser]
-host=127.0.0.1
-port=5435
-user=postgres
-dbname=postgres
-```
-
-## Installation
+Install the locked Python environment and start PostgreSQL 17 with pgvector:
 
 ```bash
-pipx install .
+uv sync --locked --all-extras
+docker compose up -d --wait
+uv run partdb db migrate
 ```
 
-or
+Or run:
 
 ```bash
-pipx install --editable .
+just install
+just up
 ```
 
-## Initial Setup
+The database is persisted in a Docker volume and exposed only on `127.0.0.1:5435`. The default connection is:
 
-After ensuring the requirements are met, run the following commands to set up the database:
-
-```bash
-partdb initdb
+```text
+postgresql://partdb@127.0.0.1:5435/partdb
 ```
 
-To load example data:
+Override it for a command with `PARTDB_DSN`. The local Compose database uses trust authentication because it is loopback-only; do not expose its port beyond localhost.
+
+Apply pending schema changes at any time with:
+
 ```bash
-partdb loaddb --path  <path to example_data/>
-partdb update_embeddings
+just migrate
 ```
 
-To drop the database for a clean start:
-```bash
-partdb dropdb
-```
+## Inventory Commands
 
-## Usage
-To add a new location:
 ```bash
-partdb add <location name>
-```
+# Create a location or add a part
+partdb add 5A1
+partdb add 5A1 "part description"
 
-To add a new part:
-```bash
-partdb add <location name> <part description>
-```
-
-To list all parts:
-```bash
+# List inventory
 partdb list
-```
-
-To list all parts at a location:
-```bash
-partdb list <location name>
-```
-
-To list all locations:
-```bash
+partdb list 5A1
 partdb list --locations
+
+# Correct recorded inventory
+partdb update 42 "revised description"
+partdb move 42 5A2
+partdb delete --id 42
+partdb delete --location 5A1
+
+# Offline PostgreSQL search
+partdb search --full-text "search phrase"
 ```
 
-To search for a part using semantic (vector) search (requires OpenAI API call):
+Deleting a populated location fails rather than cascading its parts. Locations must be created explicitly before parts can be moved into them.
+
+### CSV Export and Import
+
 ```bash
-partdb search <part description>
+partdb dumpdb --path ./export
+partdb loaddb --path ./export
 ```
 
-To search for a part using full text search:
+Exports contain `locations.csv` and `parts.csv`. They are useful for human inspection but do not contain embeddings; a PostgreSQL custom dump is the authoritative backup format.
+
+## Optional Semantic Search
+
+All ordinary inventory operations work without OpenAI. New or changed descriptions have no embedding until refreshed, preventing stale vectors from representing edited text.
+
+Semantic search and refresh require the optional dependency (installed by `--all-extras`) and `OPENAI_API_KEY` supplied securely in the command environment:
+
 ```bash
-partdb search --full-text <search phrase>
+partdb embeddings refresh
+partdb search "conceptual description"
 ```
 
-To delete a part:
+Do not place API keys in the repository.
+
+## Physical Inventory Verification
+
+Display an inclusive, naturally ordered batch of bins:
+
 ```bash
-partdb delete --id <part id>
+partdb inventory --from 5A1 --through 5A8
 ```
 
-To delete a location:
+After physically checking the bins and recording any corrections, mark the confirmed locations:
+
 ```bash
-partdb delete --location <location name>
+partdb verify mark 5A1 5A2
+partdb verify mark --from 5A1 --through 5A8
 ```
 
-To update the description of a part:
+Undo an accidental mark and inspect progress:
+
 ```bash
-partdb update <part id> <new description>
+partdb verify clear 5A2
+partdb verify status
+partdb verify status --unverified
 ```
 
-To move a part to a new location:
+Verification records only the latest confirmation timestamp. Correctly recorded adds, moves, updates, and deletes do not clear it.
+
+## Private Data Audit
+
+The audit is read-only and reports empty bins, suspicious descriptions, duplicates, naming inconsistencies, missing embeddings, invalid references, and verification totals:
+
 ```bash
-partdb move <part id> <new location name>
+partdb audit
+partdb audit --output /private/path/inventory-audit.md
 ```
+
+Reports contain real inventory descriptions. Store them outside this public repository.
+
+## Backups
+
+The default durable destination is:
+
+```text
+~/Documents/Archive/Interests/Workshop/PartDB/
+```
+
+Create a dated backup set containing a custom PostgreSQL dump, CSV exports, metadata, and SHA-256 checksums:
+
+```bash
+just backup
+```
+
+Validate checksums and perform a temporary restore before trusting a backup:
+
+```bash
+just verify-backup "/path/to/dated-backup"
+```
+
+`verify-backup` removes its disposable restore database even when validation fails. Do not modify a completed dated backup directory.
+
+## Recovery
+
+With the Compose database running, restore a validated custom dump into an empty database:
+
+```bash
+docker compose exec -T db dropdb -U partdb --if-exists --force partdb
+docker compose exec -T db createdb -U partdb partdb
+docker compose exec -T db pg_restore -U partdb -d partdb \
+  --no-owner --no-acl --exit-on-error < "/path/to/backup/partdb.custom"
+uv run partdb db migrate
+```
+
+This replaces the current database. Run `verify-backup` and create a current backup before recovery.
+
+## Development
+
+```bash
+just test
+just lint
+just format
+```
+
+GitHub Actions installs from `uv.lock`, starts the same Compose pgvector service, runs Ruff, and runs the complete pytest suite against disposable databases.
