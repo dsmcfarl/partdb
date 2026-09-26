@@ -56,6 +56,16 @@ def test_full_text_search_supports_web_query_and_nearest_empty_locations(
     assert results[0].previous_empty is None
 
 
+def test_full_text_search_stems_english_terms(conn: psycopg.Connection) -> None:
+    service = InventoryService(conn)
+    service.add_location("5A1")
+    service.add_part("5A1", "assorted resistors")
+
+    results = service.search_full_text("resistor")
+
+    assert [result.description for result in results] == ["assorted resistors"]
+
+
 def test_semantic_search_excludes_missing_embeddings(
     conn: psycopg.Connection,
 ) -> None:

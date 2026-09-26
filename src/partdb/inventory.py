@@ -174,8 +174,8 @@ class InventoryService:
                    AND NOT EXISTS (SELECT 1 FROM parts WHERE location = name)
                  ORDER BY name LIMIT 1)
             FROM parts p
-            WHERE to_tsvector('simple', description)
-                @@ websearch_to_tsquery('simple', %s)
+            WHERE to_tsvector('english', description)
+                @@ websearch_to_tsquery('english', %s)
             ORDER BY location, description, id""",
             (description,),
         )
