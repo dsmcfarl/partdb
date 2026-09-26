@@ -6,6 +6,7 @@ from pathlib import Path
 import click
 import psycopg
 
+from partdb.audit import render_markdown, run_audit, write_markdown_atomic
 from partdb.database import connect
 from partdb.embeddings import OpenAIEmbeddingProvider
 from partdb.errors import PartDBError
@@ -270,3 +271,24 @@ def refresh_embeddings(refresh_all: bool) -> None:
             OpenAIEmbeddingProvider(), refresh_all=refresh_all
         )
     click.echo(f"updated {count} embeddings")
+
+
+@cli.command("audit")
+@click.option(
+    "--output",
+    type=click.Path(path_type=Path, dir_okay=False),
+    help="Write the private Markdown report to this path",
+)
+def audit_inventory(output: Path | None) -> None:
+    """Audit inventory quality without changing records."""
+    try:
+        with connect() as conn:
+            report = run_audit(conn)
+        content = render_markdown(report)
+        if output is None:
+            click.echo(content, nl=False)
+        else:
+            write_markdown_atomic(output, content)
+            click.echo(f"wrote audit report to {output}")
+    except (psycopg.Error, OSError) as exc:
+        raise click.ClickException(str(exc)) from exc

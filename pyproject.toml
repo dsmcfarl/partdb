@@ -31,7 +31,7 @@ packages = ["src/partdb"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--strict-markers"
+addopts = "--strict-markers --import-mode=importlib"
 markers = ["integration: requires PostgreSQL/pgvector"]
 
 [tool.ruff]
