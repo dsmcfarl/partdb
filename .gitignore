@@ -4,3 +4,4 @@ __pycache__/
 /build/
 /parts.csv
 /locations.csv
+/.worktrees/
