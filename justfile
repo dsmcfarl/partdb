@@ -1,9 +1,9 @@
 lint:
-	ruff check src/
-	ruff format src/
-reset:
-	.venv/bin/python src/partdb/main.py dumpdb
-	.venv/bin/python src/partdb/main.py dropdb
-	.venv/bin/python src/partdb/main.py initdb
-	.venv/bin/python src/partdb/main.py loaddb
-	#.venv/bin/python src/partdb/main.py update_embeddings
+	uv run ruff check src tests
+	uv run ruff format --check src tests
+
+backup *args:
+	scripts/backup-local.sh {{args}}
+
+verify-backup path:
+	scripts/verify-backup.sh "{{path}}"

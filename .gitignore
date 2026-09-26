@@ -13,3 +13,5 @@ __pycache__/
 *.custom
 *.dump
 /audit-*.md
+*.incomplete
+/backups/
