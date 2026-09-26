@@ -1,0 +1,2 @@
+ALTER TABLE locations
+    ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ NULL;
