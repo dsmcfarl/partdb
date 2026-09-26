@@ -6,6 +6,8 @@ import psycopg
 import pytest
 from psycopg import sql
 
+from partdb.migrate import apply_migrations
+
 
 @pytest.fixture
 def database_dsn() -> Iterator[str]:
@@ -24,3 +26,11 @@ def database_dsn() -> Iterator[str]:
             conn.execute(
                 sql.SQL("DROP DATABASE {} WITH (FORCE)").format(sql.Identifier(name))
             )
+
+
+@pytest.fixture
+def conn(database_dsn: str) -> Iterator[psycopg.Connection]:
+    with psycopg.connect(database_dsn) as connection:
+        apply_migrations(connection)
+        connection.commit()
+        yield connection
