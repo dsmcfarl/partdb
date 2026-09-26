@@ -20,3 +20,7 @@ class DuplicateLocation(PartDBError):
 
 class EmbeddingUnavailable(PartDBError):
     pass
+
+
+class InvalidLocationRange(PartDBError):
+    pass

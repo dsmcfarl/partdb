@@ -1,4 +1,6 @@
 import csv
+from collections.abc import Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 
 import psycopg
@@ -6,11 +8,13 @@ import psycopg
 from partdb.embeddings import EmbeddingProvider
 from partdb.errors import (
     DuplicateLocation,
+    InvalidLocationRange,
     LocationNotEmpty,
     LocationNotFound,
     PartNotFound,
 )
-from partdb.models import Location, Part, SearchResult
+from partdb.location_order import inclusive_location_range, natural_location_key
+from partdb.models import InventoryLocation, Location, Part, SearchResult
 
 
 class InventoryService:
@@ -114,6 +118,48 @@ class InventoryService:
         if has_parts:
             raise LocationNotEmpty(f"location {name} is not empty")
         self.conn.execute("DELETE FROM locations WHERE name = %s", (name,))
+
+    def inventory_range(self, start: str, end: str) -> list[InventoryLocation]:
+        names = [location.name for location in self.list_locations()]
+        selected = inclusive_location_range(names, start, end)
+        return self.inventory_locations(selected)
+
+    def inventory_locations(self, names: Sequence[str]) -> list[InventoryLocation]:
+        canonical = self._canonical_location_names(names)
+        locations = {location.name: location for location in self.list_locations()}
+        return [
+            InventoryLocation(
+                name=name,
+                verified_at=locations[name].verified_at,
+                parts=tuple(self.list_parts(name)),
+            )
+            for name in canonical
+        ]
+
+    def mark_verified(
+        self, names: Sequence[str], verified_at: datetime | None = None
+    ) -> int:
+        canonical = self._canonical_location_names(names)
+        timestamp = verified_at or datetime.now(UTC)
+        result = self.conn.execute(
+            "UPDATE locations SET verified_at = %s WHERE name = ANY(%s)",
+            (timestamp, canonical),
+        )
+        return result.rowcount
+
+    def clear_verification(self, names: Sequence[str]) -> int:
+        canonical = self._canonical_location_names(names)
+        result = self.conn.execute(
+            "UPDATE locations SET verified_at = NULL WHERE name = ANY(%s)",
+            (canonical,),
+        )
+        return result.rowcount
+
+    def verification_status(self, unverified_only: bool = False) -> list[Location]:
+        locations = self.list_locations()
+        if unverified_only:
+            locations = [item for item in locations if item.verified_at is None]
+        return sorted(locations, key=lambda item: natural_location_key(item.name))
 
     def search_full_text(self, description: str) -> list[SearchResult]:
         description = self._nonblank(description, "description")
@@ -242,6 +288,23 @@ class InventoryService:
             previous_empty=row[4],
             next_empty=row[5],
         )
+
+    def _canonical_location_names(self, names: Sequence[str]) -> list[str]:
+        if not names:
+            raise InvalidLocationRange("at least one location is required")
+        by_casefold: dict[str, list[str]] = {}
+        for location in self.list_locations():
+            by_casefold.setdefault(location.name.casefold(), []).append(location.name)
+        canonical: list[str] = []
+        for name in names:
+            matches = by_casefold.get(name.casefold(), [])
+            if not matches:
+                raise LocationNotFound(f"location {name} not found")
+            if len(matches) > 1:
+                raise InvalidLocationRange(f"ambiguous range endpoint {name}")
+            if matches[0] not in canonical:
+                canonical.append(matches[0])
+        return sorted(canonical, key=natural_location_key)
 
     def _require_location(self, name: str) -> None:
         exists = self.conn.execute(

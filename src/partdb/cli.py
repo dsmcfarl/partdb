@@ -119,6 +119,87 @@ def delete(location: str | None, part_id: int | None, yes: bool) -> None:
     click.echo(f"deleted {target}")
 
 
+def display_inventory(items) -> None:
+    for item in items:
+        status = item.verified_at.isoformat() if item.verified_at else "unverified"
+        click.echo(f"{item.name} [{status}]")
+        if item.parts:
+            for part in item.parts:
+                click.echo(f"  {part.description} (id={part.id})")
+        else:
+            click.echo("  (empty)")
+
+
+@cli.command("inventory")
+@click.option("--from", "start", required=True, help="First location")
+@click.option("--through", "end", required=True, help="Last location")
+def show_inventory(start: str, end: str) -> None:
+    """Show every location and part in an inclusive range."""
+    with inventory_service() as service:
+        display_inventory(service.inventory_range(start, end))
+
+
+@cli.group()
+def verify() -> None:
+    """Track physical inventory verification."""
+
+
+@verify.command("mark")
+@click.argument("names", nargs=-1)
+@click.option("--from", "start", help="First location")
+@click.option("--through", "end", help="Last location")
+@click.option("--yes", is_flag=True, help="Skip confirmation")
+def mark_verified(
+    names: tuple[str, ...], start: str | None, end: str | None, yes: bool
+) -> None:
+    """Mark explicit locations or an inclusive range verified."""
+    if names and (start or end):
+        raise click.ClickException("cannot combine names with --from/--through")
+    if (start is None) != (end is None):
+        raise click.ClickException("both --from and --through are required")
+    if not names and start is None:
+        raise click.ClickException("supply locations or --from/--through")
+    with inventory_service() as service:
+        if start is not None and end is not None:
+            items = service.inventory_range(start, end)
+        else:
+            items = service.inventory_locations(names)
+        display_inventory(items)
+        if not yes:
+            click.confirm("Proceed?", abort=True)
+        count = service.mark_verified([item.name for item in items])
+    click.echo(f"marked {count} locations verified")
+
+
+@verify.command("clear")
+@click.argument("names", nargs=-1, required=True)
+@click.option("--yes", is_flag=True, help="Skip confirmation")
+def clear_verified(names: tuple[str, ...], yes: bool) -> None:
+    """Clear physical verification for locations."""
+    if not yes:
+        click.confirm(f"Clear verification for {len(names)} locations?", abort=True)
+    with inventory_service() as service:
+        count = service.clear_verification(names)
+    click.echo(f"cleared verification for {count} locations")
+
+
+@verify.command("status")
+@click.option("--unverified", is_flag=True, help="List only unverified locations")
+def verification_status(unverified: bool) -> None:
+    """Show physical verification progress."""
+    with inventory_service() as service:
+        all_locations = service.verification_status()
+        verified = sum(item.verified_at is not None for item in all_locations)
+        click.echo(
+            f"verified {verified}/{len(all_locations)}; "
+            f"unverified {len(all_locations) - verified}"
+        )
+        items = service.verification_status(unverified_only=unverified)
+        for item in items:
+            status = item.verified_at.isoformat() if item.verified_at else "unverified"
+            click.echo(f"{item.name}: {status}")
+
+
 @cli.command()
 @click.option("--full-text", is_flag=True, help="Use PostgreSQL full-text search")
 @click.argument("description")

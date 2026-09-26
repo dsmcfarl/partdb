@@ -24,3 +24,10 @@ class SearchResult:
     distance: float | None
     previous_empty: str | None
     next_empty: str | None
+
+
+@dataclass(frozen=True)
+class InventoryLocation:
+    name: str
+    verified_at: datetime | None
+    parts: tuple[Part, ...]
