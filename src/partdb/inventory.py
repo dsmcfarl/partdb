@@ -1,12 +1,16 @@
+import csv
+from pathlib import Path
+
 import psycopg
 
+from partdb.embeddings import EmbeddingProvider
 from partdb.errors import (
     DuplicateLocation,
     LocationNotEmpty,
     LocationNotFound,
     PartNotFound,
 )
-from partdb.models import Location, Part
+from partdb.models import Location, Part, SearchResult
 
 
 class InventoryService:
@@ -110,6 +114,134 @@ class InventoryService:
         if has_parts:
             raise LocationNotEmpty(f"location {name} is not empty")
         self.conn.execute("DELETE FROM locations WHERE name = %s", (name,))
+
+    def search_full_text(self, description: str) -> list[SearchResult]:
+        description = self._nonblank(description, "description")
+        rows = self.conn.execute(
+            """SELECT id, location, description, NULL::double precision,
+                (SELECT name FROM locations
+                 WHERE name < p.location
+                   AND NOT EXISTS (SELECT 1 FROM parts WHERE location = name)
+                 ORDER BY name DESC LIMIT 1),
+                (SELECT name FROM locations
+                 WHERE name > p.location
+                   AND NOT EXISTS (SELECT 1 FROM parts WHERE location = name)
+                 ORDER BY name LIMIT 1)
+            FROM parts p
+            WHERE to_tsvector('simple', description)
+                @@ websearch_to_tsquery('simple', %s)
+            ORDER BY location, description, id""",
+            (description,),
+        )
+        return [self._search_result(row) for row in rows]
+
+    def search_semantic(
+        self, provider: EmbeddingProvider, description: str, limit: int = 10
+    ) -> list[SearchResult]:
+        description = self._nonblank(description, "description")
+        if limit < 1:
+            raise ValueError("limit must be positive")
+        vector = self._vector_literal(provider.embed(description))
+        rows = self.conn.execute(
+            """SELECT id, location, description,
+                embedding <=> %s::vector AS distance,
+                (SELECT name FROM locations
+                 WHERE name < p.location
+                   AND NOT EXISTS (SELECT 1 FROM parts WHERE location = name)
+                 ORDER BY name DESC LIMIT 1),
+                (SELECT name FROM locations
+                 WHERE name > p.location
+                   AND NOT EXISTS (SELECT 1 FROM parts WHERE location = name)
+                 ORDER BY name LIMIT 1)
+            FROM parts p
+            WHERE embedding IS NOT NULL
+            ORDER BY distance, id LIMIT %s""",
+            (vector, limit),
+        )
+        return [self._search_result(row) for row in rows]
+
+    def refresh_embeddings(
+        self, provider: EmbeddingProvider, refresh_all: bool = False
+    ) -> int:
+        query = "SELECT id, description FROM parts"
+        if not refresh_all:
+            query += " WHERE embedding IS NULL"
+        rows = list(self.conn.execute(query + " ORDER BY id"))
+        for part_id, description in rows:
+            vector = self._vector_literal(provider.embed(description))
+            self.conn.execute(
+                "UPDATE parts SET embedding = %s::vector WHERE id = %s",
+                (vector, part_id),
+            )
+        return len(rows)
+
+    def dump_csv(self, path: Path) -> None:
+        path.mkdir(parents=True, exist_ok=True)
+        with (path / "locations.csv").open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(["name"])
+            writer.writerows((location.name,) for location in self.list_locations())
+        with (path / "parts.csv").open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(["location", "description"])
+            writer.writerows(
+                (part.location, part.description) for part in self.list_parts()
+            )
+
+    def load_csv(self, path: Path) -> None:
+        locations = self._read_csv(path / "locations.csv", ["name"])
+        parts = self._read_csv(path / "parts.csv", ["location", "description"])
+        names: list[str] = []
+        for row in locations:
+            name = self._nonblank(row["name"], "location")
+            if name in names:
+                raise ValueError(f"duplicate location {name}")
+            names.append(name)
+        existing = {location.name for location in self.list_locations()}
+        duplicate = existing.intersection(names)
+        if duplicate:
+            raise ValueError(f"duplicate location {min(duplicate)}")
+        prepared_parts: list[tuple[str, str]] = []
+        for row in parts:
+            location = self._nonblank(row["location"], "location")
+            description = self._nonblank(row["description"], "description")
+            if location not in names:
+                raise ValueError(f"unknown location {location}")
+            prepared_parts.append((location, description))
+        for name in names:
+            self.add_location(name)
+        for location, description in prepared_parts:
+            self.add_part(location, description)
+
+    @staticmethod
+    def _read_csv(path: Path, fields: list[str]) -> list[dict[str, str]]:
+        if not path.is_file():
+            raise ValueError(f"missing {path.name}")
+        with path.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            if reader.fieldnames != fields:
+                raise ValueError(f"{path.name} headers must be {','.join(fields)}")
+            rows = list(reader)
+        if any(None in row or None in row.values() for row in rows):
+            raise ValueError(f"malformed row in {path.name}")
+        return rows
+
+    @staticmethod
+    def _vector_literal(values: list[float]) -> str:
+        if len(values) != 1536:
+            raise ValueError("embedding must contain exactly 1536 values")
+        return "[" + ",".join(str(float(value)) for value in values) + "]"
+
+    @staticmethod
+    def _search_result(row: tuple) -> SearchResult:
+        return SearchResult(
+            id=row[0],
+            location=row[1],
+            description=row[2],
+            distance=float(row[3]) if row[3] is not None else None,
+            previous_empty=row[4],
+            next_empty=row[5],
+        )
 
     def _require_location(self, name: str) -> None:
         exists = self.conn.execute(

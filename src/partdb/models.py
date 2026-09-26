@@ -14,3 +14,13 @@ class Part:
     location: str
     description: str
     has_embedding: bool
+
+
+@dataclass(frozen=True)
+class SearchResult:
+    id: int
+    location: str
+    description: str
+    distance: float | None
+    previous_empty: str | None
+    next_empty: str | None

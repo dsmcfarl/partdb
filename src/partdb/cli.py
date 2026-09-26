@@ -1,11 +1,13 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
 from importlib.metadata import version
+from pathlib import Path
 
 import click
 import psycopg
 
 from partdb.database import connect
+from partdb.embeddings import OpenAIEmbeddingProvider
 from partdb.errors import PartDBError
 from partdb.inventory import InventoryService
 from partdb.migrate import apply_migrations
@@ -115,3 +117,75 @@ def delete(location: str | None, part_id: int | None, yes: bool) -> None:
             assert part_id is not None
             service.delete_part(part_id)
     click.echo(f"deleted {target}")
+
+
+@cli.command()
+@click.option("--full-text", is_flag=True, help="Use PostgreSQL full-text search")
+@click.argument("description")
+def search(full_text: bool, description: str) -> None:
+    """Search part descriptions."""
+    with inventory_service() as service:
+        if full_text:
+            results = service.search_full_text(description)
+        else:
+            results = service.search_semantic(OpenAIEmbeddingProvider(), description)
+        for result in results:
+            details = []
+            if result.distance is not None:
+                details.append(f"distance={result.distance:.3f}")
+            details.append(
+                "empty="
+                + ",".join(
+                    value
+                    for value in (result.previous_empty, result.next_empty)
+                    if value is not None
+                )
+            )
+            click.echo(
+                f"{result.location}: {result.description} "
+                f"(id={result.id}, {', '.join(details)})"
+            )
+
+
+@cli.command()
+@click.option(
+    "--path",
+    type=click.Path(path_type=Path, file_okay=False),
+    default=Path.cwd,
+    show_default="current directory",
+)
+def dumpdb(path: Path) -> None:
+    """Export locations and parts to CSV files."""
+    with inventory_service() as service:
+        service.dump_csv(path)
+    click.echo(f"dumped data to {path}")
+
+
+@cli.command()
+@click.option(
+    "--path",
+    type=click.Path(path_type=Path, file_okay=False, exists=True),
+    default=Path.cwd,
+    show_default="current directory",
+)
+def loaddb(path: Path) -> None:
+    """Load locations and parts from CSV files."""
+    with inventory_service() as service:
+        service.load_csv(path)
+    click.echo(f"loaded data from {path}")
+
+
+@cli.group()
+def embeddings() -> None:
+    """Manage optional semantic-search embeddings."""
+
+
+@embeddings.command("refresh")
+@click.option("--all", "refresh_all", is_flag=True, help="Refresh every part")
+def refresh_embeddings(refresh_all: bool) -> None:
+    """Create embeddings for parts that do not have one."""
+    with inventory_service() as service:
+        count = service.refresh_embeddings(
+            OpenAIEmbeddingProvider(), refresh_all=refresh_all
+        )
+    click.echo(f"updated {count} embeddings")

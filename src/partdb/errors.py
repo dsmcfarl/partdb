@@ -16,3 +16,7 @@ class LocationNotEmpty(PartDBError):
 
 class DuplicateLocation(PartDBError):
     pass
+
+
+class EmbeddingUnavailable(PartDBError):
+    pass
