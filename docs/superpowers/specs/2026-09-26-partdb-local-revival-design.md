@@ -1,7 +1,7 @@
 # PartDB Local Revival Design
 
 **Date:** 2026-09-26
-**Status:** Approved in conversation; awaiting written-spec review
+**Status:** Approved
 
 ## Purpose
 
@@ -56,7 +56,7 @@ This phase will not:
 
 The repository lives at `~/code/gh/dsmcfarl/partdb`. Development occurs in an isolated Git worktree. The committed development environment includes a `compose.yaml` running a pinned `pgvector/pgvector` PostgreSQL image.
 
-PostgreSQL binds only to localhost and stores its authoritative data in a persistent Docker volume. Local credentials are supplied through ignored configuration and never committed.
+PostgreSQL binds only to localhost and stores its authoritative data in a persistent Docker volume. The local-only Compose service uses trust authentication so no database password must be stored; it must never be exposed beyond the loopback interface. Any future external credentials remain outside Git.
 
 The Python project uses `uv` with a valid build backend and lockfile. A clean `uv sync --locked` installs the `partdb` console command.
 
