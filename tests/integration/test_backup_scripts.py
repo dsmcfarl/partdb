@@ -79,6 +79,82 @@ def test_backup_handles_spaces_and_restores_counts(
     assert restore_database_count() == 0
 
 
+def test_backup_rejects_mismatched_dsn_and_database(
+    database_dsn: str, conn: psycopg.Connection, tmp_path: Path
+) -> None:
+    InventoryService(conn).add_location("5A1")
+    conn.commit()
+    environment = script_environment(database_dsn)
+    environment["PARTDB_DATABASE"] = "partdb"
+
+    result = subprocess.run(
+        [str(REPO / "scripts/backup-local.sh"), str(tmp_path / "mixed")],
+        cwd=REPO,
+        env=environment,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "PARTDB_DSN database must match PARTDB_DATABASE" in result.stderr
+
+
+def test_validation_rejects_metadata_mismatch_and_cleans_restore_database(
+    database_dsn: str, conn: psycopg.Connection, tmp_path: Path
+) -> None:
+    service = InventoryService(conn)
+    service.add_location("5A1")
+    service.add_part("5A1", "washer")
+    conn.commit()
+    environment = script_environment(database_dsn)
+    backup = subprocess.run(
+        [str(REPO / "scripts/backup-local.sh"), str(tmp_path / "metadata")],
+        cwd=REPO,
+        env=environment,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    backup_dir = Path(backup.stdout.strip().splitlines()[-1])
+    metadata = backup_dir / "metadata.txt"
+    content = metadata.read_text(encoding="utf-8")
+    metadata.write_text(
+        content.replace("embeddings=0", "embeddings=999").replace(
+            "migration=002_location_verification", "migration=wrong"
+        ),
+        encoding="utf-8",
+    )
+    subprocess.run(
+        [
+            "shasum",
+            "-a",
+            "256",
+            "partdb.custom",
+            "locations.csv",
+            "parts.csv",
+            "metadata.txt",
+        ],
+        cwd=backup_dir,
+        text=True,
+        stdout=(backup_dir / "SHA256SUMS").open("w", encoding="utf-8"),
+        check=True,
+    )
+
+    result = subprocess.run(
+        [str(REPO / "scripts/verify-backup.sh"), str(backup_dir)],
+        cwd=REPO,
+        env=environment,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "embedding count mismatch" in result.stderr
+    assert restore_database_count() == 0
+
+
 def test_corrupt_dump_fails_without_leaving_restore_database(
     database_dsn: str, conn: psycopg.Connection, tmp_path: Path
 ) -> None:

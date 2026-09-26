@@ -66,6 +66,22 @@ def test_full_text_search_stems_english_terms(conn: psycopg.Connection) -> None:
     assert [result.description for result in results] == ["assorted resistors"]
 
 
+def test_search_uses_natural_order_for_empty_neighbors(
+    conn: psycopg.Connection,
+) -> None:
+    service = InventoryService(conn)
+    for name in ("5A1", "5A2", "5A10"):
+        service.add_location(name)
+    service.add_part("5A1", "resistor")
+    service.add_part("5A10", "capacitor")
+
+    resistor = service.search_full_text("resistor")[0]
+    capacitor = service.search_full_text("capacitor")[0]
+
+    assert resistor.next_empty == "5A2"
+    assert capacitor.previous_empty == "5A2"
+
+
 def test_semantic_search_excludes_missing_embeddings(
     conn: psycopg.Connection,
 ) -> None:
@@ -116,6 +132,18 @@ def test_malformed_csv_is_rejected_before_any_insert(
 
     assert conn.execute("SELECT count(*) FROM locations").fetchone()[0] == 0
     assert conn.execute("SELECT count(*) FROM parts").fetchone()[0] == 0
+
+
+def test_case_colliding_csv_locations_are_rejected_before_any_insert(
+    conn: psycopg.Connection, tmp_path: Path
+) -> None:
+    (tmp_path / "locations.csv").write_text("name\n5A1\n5a1\n", encoding="utf-8")
+    (tmp_path / "parts.csv").write_text("location,description\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="duplicate location 5a1"):
+        InventoryService(conn).load_csv(tmp_path)
+
+    assert conn.execute("SELECT count(*) FROM locations").fetchone()[0] == 0
 
 
 def test_unknown_csv_location_is_rejected_before_any_insert(

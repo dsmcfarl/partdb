@@ -32,6 +32,18 @@ def test_crud_lists_parts_and_locations(conn: psycopg.Connection) -> None:
     assert [item.name for item in service.list_locations()] == ["5A2"]
 
 
+def test_locations_are_listed_in_natural_order(conn: psycopg.Connection) -> None:
+    service = InventoryService(conn)
+    for name in ("5A10", "5A2", "5A1"):
+        service.add_location(name)
+
+    assert [location.name for location in service.list_locations()] == [
+        "5A1",
+        "5A2",
+        "5A10",
+    ]
+
+
 def test_update_description_clears_stale_embedding(conn: psycopg.Connection) -> None:
     service = InventoryService(conn)
     service.add_location("5A1")
@@ -82,6 +94,8 @@ def test_rejects_duplicate_location_and_blank_values(
     service.add_location("5A1")
     with pytest.raises(DuplicateLocation, match="5A1"):
         service.add_location("5A1")
+    with pytest.raises(DuplicateLocation, match="5a1"):
+        service.add_location("5a1")
     with pytest.raises(ValueError, match="blank"):
         service.add_location(" ")
     with pytest.raises(ValueError, match="blank"):

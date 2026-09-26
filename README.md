@@ -27,7 +27,7 @@ just install
 just up
 ```
 
-The database is persisted in a Docker volume and exposed only on `127.0.0.1:5435`. The default connection is:
+The database is persisted in the stable Docker volume `partdb_partdb-data` and exposed only on `127.0.0.1:5435`. The Compose project is explicitly named `partdb`, so the same authoritative volume is used from a worktree or the canonical checkout. The default connection is:
 
 ```text
 postgresql://partdb@127.0.0.1:5435/partdb
@@ -45,22 +45,22 @@ just migrate
 
 ```bash
 # Create a location or add a part
-partdb add 5A1
-partdb add 5A1 "part description"
+uv run partdb add 5A1
+uv run partdb add 5A1 "part description"
 
 # List inventory
-partdb list
-partdb list 5A1
-partdb list --locations
+uv run partdb list
+uv run partdb list 5A1
+uv run partdb list --locations
 
 # Correct recorded inventory
-partdb update 42 "revised description"
-partdb move 42 5A2
-partdb delete --id 42
-partdb delete --location 5A1
+uv run partdb update 42 "revised description"
+uv run partdb move 42 5A2
+uv run partdb delete --id 42
+uv run partdb delete --location 5A1
 
 # Offline PostgreSQL search
-partdb search --full-text "search phrase"
+uv run partdb search --full-text "search phrase"
 ```
 
 Deleting a populated location fails rather than cascading its parts. Locations must be created explicitly before parts can be moved into them.
@@ -68,8 +68,8 @@ Deleting a populated location fails rather than cascading its parts. Locations m
 ### CSV Export and Import
 
 ```bash
-partdb dumpdb --path ./export
-partdb loaddb --path ./export
+uv run partdb dumpdb --path ./export
+uv run partdb loaddb --path ./export
 ```
 
 Exports contain `locations.csv` and `parts.csv`. They are useful for human inspection but do not contain embeddings; a PostgreSQL custom dump is the authoritative backup format.
@@ -81,8 +81,8 @@ All ordinary inventory operations work without OpenAI. New or changed descriptio
 Semantic search and refresh require the optional dependency (installed by `--all-extras`) and `OPENAI_API_KEY` supplied securely in the command environment:
 
 ```bash
-partdb embeddings refresh
-partdb search "conceptual description"
+uv run partdb embeddings refresh
+uv run partdb search "conceptual description"
 ```
 
 Do not place API keys in the repository.
@@ -92,22 +92,22 @@ Do not place API keys in the repository.
 Display an inclusive, naturally ordered batch of bins:
 
 ```bash
-partdb inventory --from 5A1 --through 5A8
+uv run partdb inventory --from 5A1 --through 5A8
 ```
 
 After physically checking the bins and recording any corrections, mark the confirmed locations:
 
 ```bash
-partdb verify mark 5A1 5A2
-partdb verify mark --from 5A1 --through 5A8
+uv run partdb verify mark 5A1 5A2
+uv run partdb verify mark --from 5A1 --through 5A8
 ```
 
 Undo an accidental mark and inspect progress:
 
 ```bash
-partdb verify clear 5A2
-partdb verify status
-partdb verify status --unverified
+uv run partdb verify clear 5A2
+uv run partdb verify status
+uv run partdb verify status --unverified
 ```
 
 Verification records only the latest confirmation timestamp. Correctly recorded adds, moves, updates, and deletes do not clear it.
@@ -117,8 +117,8 @@ Verification records only the latest confirmation timestamp. Correctly recorded 
 The audit is read-only and reports empty bins, suspicious descriptions, duplicates, naming inconsistencies, missing embeddings, invalid references, and verification totals:
 
 ```bash
-partdb audit
-partdb audit --output /private/path/inventory-audit.md
+uv run partdb audit
+uv run partdb audit --output /private/path/inventory-audit.md
 ```
 
 Reports contain real inventory descriptions. Store them outside this public repository.

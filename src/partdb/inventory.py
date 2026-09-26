@@ -22,16 +22,15 @@ class InventoryService:
         self.conn = conn
 
     def list_locations(self) -> list[Location]:
-        rows = self.conn.execute(
-            "SELECT name, verified_at FROM locations ORDER BY name"
-        )
-        return [Location(row[0], row[1]) for row in rows]
+        rows = self.conn.execute("SELECT name, verified_at FROM locations")
+        locations = [Location(row[0], row[1]) for row in rows]
+        return sorted(locations, key=lambda item: natural_location_key(item.name))
 
     def list_parts(self, location: str | None = None) -> list[Part]:
         if location is None:
             rows = self.conn.execute(
                 """SELECT id, location, description, embedding IS NOT NULL
-                FROM parts ORDER BY location, description, id"""
+                FROM parts"""
             )
         else:
             self._require_location(location)
@@ -40,7 +39,17 @@ class InventoryService:
                 FROM parts WHERE location = %s ORDER BY description, id""",
                 (location,),
             )
-        return [self._part(row) for row in rows]
+        parts = [self._part(row) for row in rows]
+        if location is None:
+            return sorted(
+                parts,
+                key=lambda item: (
+                    natural_location_key(item.location),
+                    item.description,
+                    item.id,
+                ),
+            )
+        return parts
 
     def get_part(self, part_id: int) -> Part:
         row = self.conn.execute(
@@ -57,6 +66,12 @@ class InventoryService:
 
     def add_location(self, name: str) -> Location:
         name = self._nonblank(name, "location")
+        collision = self.conn.execute(
+            "SELECT name FROM locations WHERE lower(name) = lower(%s) LIMIT 1",
+            (name,),
+        ).fetchone()
+        if collision is not None:
+            raise DuplicateLocation(f"location {name} already exists")
         row = self.conn.execute(
             """INSERT INTO locations(name) VALUES (%s)
             ON CONFLICT DO NOTHING RETURNING name, verified_at""",
@@ -164,22 +179,21 @@ class InventoryService:
     def search_full_text(self, description: str) -> list[SearchResult]:
         description = self._nonblank(description, "description")
         rows = self.conn.execute(
-            """SELECT id, location, description, NULL::double precision,
-                (SELECT name FROM locations
-                 WHERE name < p.location
-                   AND NOT EXISTS (SELECT 1 FROM parts WHERE location = name)
-                 ORDER BY name DESC LIMIT 1),
-                (SELECT name FROM locations
-                 WHERE name > p.location
-                   AND NOT EXISTS (SELECT 1 FROM parts WHERE location = name)
-                 ORDER BY name LIMIT 1)
-            FROM parts p
+            """SELECT id, location, description, NULL::double precision
+            FROM parts
             WHERE to_tsvector('english', description)
-                @@ websearch_to_tsquery('english', %s)
-            ORDER BY location, description, id""",
+                @@ websearch_to_tsquery('english', %s)""",
             (description,),
         )
-        return [self._search_result(row) for row in rows]
+        results = [self._search_result(row) for row in rows]
+        return sorted(
+            results,
+            key=lambda item: (
+                natural_location_key(item.location),
+                item.description,
+                item.id,
+            ),
+        )
 
     def search_semantic(
         self, provider: EmbeddingProvider, description: str, limit: int = 10
@@ -190,16 +204,8 @@ class InventoryService:
         vector = self._vector_literal(provider.embed(description))
         rows = self.conn.execute(
             """SELECT id, location, description,
-                embedding <=> %s::vector AS distance,
-                (SELECT name FROM locations
-                 WHERE name < p.location
-                   AND NOT EXISTS (SELECT 1 FROM parts WHERE location = name)
-                 ORDER BY name DESC LIMIT 1),
-                (SELECT name FROM locations
-                 WHERE name > p.location
-                   AND NOT EXISTS (SELECT 1 FROM parts WHERE location = name)
-                 ORDER BY name LIMIT 1)
-            FROM parts p
+                embedding <=> %s::vector AS distance
+            FROM parts
             WHERE embedding IS NOT NULL
             ORDER BY distance, id LIMIT %s""",
             (vector, limit),
@@ -238,15 +244,18 @@ class InventoryService:
         locations = self._read_csv(path / "locations.csv", ["name"])
         parts = self._read_csv(path / "parts.csv", ["location", "description"])
         names: list[str] = []
+        names_by_casefold: set[str] = set()
         for row in locations:
             name = self._nonblank(row["name"], "location")
-            if name in names:
+            if name.casefold() in names_by_casefold:
                 raise ValueError(f"duplicate location {name}")
             names.append(name)
-        existing = {location.name for location in self.list_locations()}
-        duplicate = existing.intersection(names)
+            names_by_casefold.add(name.casefold())
+        existing = {location.name.casefold() for location in self.list_locations()}
+        duplicate = existing.intersection(names_by_casefold)
         if duplicate:
-            raise ValueError(f"duplicate location {min(duplicate)}")
+            original = next(name for name in names if name.casefold() in duplicate)
+            raise ValueError(f"duplicate location {original}")
         prepared_parts: list[tuple[str, str]] = []
         for row in parts:
             location = self._nonblank(row["location"], "location")
@@ -278,16 +287,30 @@ class InventoryService:
             raise ValueError("embedding must contain exactly 1536 values")
         return "[" + ",".join(str(float(value)) for value in values) + "]"
 
-    @staticmethod
-    def _search_result(row: tuple) -> SearchResult:
+    def _search_result(self, row: tuple) -> SearchResult:
+        previous_empty, next_empty = self._empty_location_neighbors(row[1])
         return SearchResult(
             id=row[0],
             location=row[1],
             description=row[2],
             distance=float(row[3]) if row[3] is not None else None,
-            previous_empty=row[4],
-            next_empty=row[5],
+            previous_empty=previous_empty,
+            next_empty=next_empty,
         )
+
+    def _empty_location_neighbors(self, location: str) -> tuple[str | None, str | None]:
+        names = [item.name for item in self.list_locations()]
+        occupied = {
+            row[0] for row in self.conn.execute("SELECT DISTINCT location FROM parts")
+        }
+        index = names.index(location)
+        previous_empty = next(
+            (name for name in reversed(names[:index]) if name not in occupied), None
+        )
+        next_empty = next(
+            (name for name in names[index + 1 :] if name not in occupied), None
+        )
+        return previous_empty, next_empty
 
     def _canonical_location_names(self, names: Sequence[str]) -> list[str]:
         if not names:
@@ -300,10 +323,14 @@ class InventoryService:
             matches = by_casefold.get(name.casefold(), [])
             if not matches:
                 raise LocationNotFound(f"location {name} not found")
-            if len(matches) > 1:
-                raise InvalidLocationRange(f"ambiguous range endpoint {name}")
-            if matches[0] not in canonical:
-                canonical.append(matches[0])
+            if name in matches:
+                selected = name
+            elif len(matches) > 1:
+                raise InvalidLocationRange(f"ambiguous location {name}")
+            else:
+                selected = matches[0]
+            if selected not in canonical:
+                canonical.append(selected)
         return sorted(canonical, key=natural_location_key)
 
     def _require_location(self, name: str) -> None:

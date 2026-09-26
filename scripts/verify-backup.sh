@@ -46,6 +46,9 @@ actual_migration=$(docker compose exec -T db psql -U partdb -d "$restore_db" -At
     "SELECT coalesce(max(version), 'none') FROM schema_migrations")
 expected_locations=$(awk -F= '$1 == "locations" {print $2}' "$dir/metadata.txt")
 expected_parts=$(awk -F= '$1 == "parts" {print $2}' "$dir/metadata.txt")
+expected_embeddings=$(awk -F= '$1 == "embeddings" {print $2}' "$dir/metadata.txt")
+expected_vector=$(awk -F= '$1 == "vector" {print $2}' "$dir/metadata.txt")
+expected_migration=$(awk -F= '$1 == "migration" {print $2}' "$dir/metadata.txt")
 
 if [[ "$actual_locations" != "$expected_locations" ]]; then
     printf 'location count mismatch: expected %s, restored %s\n' \
@@ -55,6 +58,21 @@ fi
 if [[ "$actual_parts" != "$expected_parts" ]]; then
     printf 'part count mismatch: expected %s, restored %s\n' \
         "$expected_parts" "$actual_parts" >&2
+    exit 1
+fi
+if [[ "$actual_embeddings" != "$expected_embeddings" ]]; then
+    printf 'embedding count mismatch: expected %s, restored %s\n' \
+        "$expected_embeddings" "$actual_embeddings" >&2
+    exit 1
+fi
+if [[ "$actual_vector" != "$expected_vector" ]]; then
+    printf 'vector version mismatch: expected %s, restored %s\n' \
+        "$expected_vector" "$actual_vector" >&2
+    exit 1
+fi
+if [[ "$actual_migration" != "$expected_migration" ]]; then
+    printf 'migration mismatch: expected %s, restored %s\n' \
+        "$expected_migration" "$actual_migration" >&2
     exit 1
 fi
 

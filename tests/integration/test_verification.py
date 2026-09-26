@@ -70,6 +70,17 @@ def test_recorded_inventory_changes_do_not_clear_verification(
     assert status["5A3"] == fixed
 
 
+def test_exact_location_name_wins_when_legacy_case_collision_exists(
+    conn: psycopg.Connection,
+) -> None:
+    service = InventoryService(conn)
+    conn.execute("INSERT INTO locations(name) VALUES ('5A1'), ('5a1')")
+
+    inventory = service.inventory_locations(["5A1"])
+
+    assert [item.name for item in inventory] == ["5A1"]
+
+
 def test_verification_status_filters_and_sorts_naturally(
     conn: psycopg.Connection,
 ) -> None:

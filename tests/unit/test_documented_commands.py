@@ -19,6 +19,11 @@ def test_documented_just_recipes_exist() -> None:
     } <= recipes
 
 
+def test_compose_identity_is_stable_across_worktrees() -> None:
+    compose = (REPO / "compose.yaml").read_text(encoding="utf-8")
+    assert re.search(r"^name: partdb$", compose, re.MULTILINE)
+
+
 def test_readme_documents_operating_configuration_and_workflows() -> None:
     readme = (REPO / "README.md").read_text(encoding="utf-8")
     for required in (
@@ -29,6 +34,7 @@ def test_readme_documents_operating_configuration_and_workflows() -> None:
         "partdb inventory --from 5A1 --through 5A8",
         "partdb verify mark",
         "partdb verify clear",
-        "partdb verify status",
+        "uv run partdb verify status",
+        "partdb_partdb-data",
     ):
         assert required in readme
