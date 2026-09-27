@@ -1,5 +1,5 @@
 import csv
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -185,7 +185,7 @@ class InventoryService:
                 @@ websearch_to_tsquery('english', %s)""",
             (description,),
         )
-        results = [self._search_result(row) for row in rows]
+        results = self._search_results(rows)
         return sorted(
             results,
             key=lambda item: (
@@ -210,7 +210,7 @@ class InventoryService:
             ORDER BY distance, id LIMIT %s""",
             (vector, limit),
         )
-        return [self._search_result(row) for row in rows]
+        return self._search_results(rows)
 
     def refresh_embeddings(
         self, provider: EmbeddingProvider, refresh_all: bool = False
@@ -287,30 +287,33 @@ class InventoryService:
             raise ValueError("embedding must contain exactly 1536 values")
         return "[" + ",".join(str(float(value)) for value in values) + "]"
 
-    def _search_result(self, row: tuple) -> SearchResult:
-        previous_empty, next_empty = self._empty_location_neighbors(row[1])
-        return SearchResult(
-            id=row[0],
-            location=row[1],
-            description=row[2],
-            distance=float(row[3]) if row[3] is not None else None,
-            previous_empty=previous_empty,
-            next_empty=next_empty,
-        )
-
-    def _empty_location_neighbors(self, location: str) -> tuple[str | None, str | None]:
+    def _search_results(self, rows: Iterable[tuple]) -> list[SearchResult]:
+        rows = list(rows)
         names = [item.name for item in self.list_locations()]
         occupied = {
             row[0] for row in self.conn.execute("SELECT DISTINCT location FROM parts")
         }
-        index = names.index(location)
-        previous_empty = next(
-            (name for name in reversed(names[:index]) if name not in occupied), None
-        )
-        next_empty = next(
-            (name for name in names[index + 1 :] if name not in occupied), None
-        )
-        return previous_empty, next_empty
+        results = []
+        for row in rows:
+            index = names.index(row[1])
+            previous_empty = next(
+                (name for name in reversed(names[:index]) if name not in occupied),
+                None,
+            )
+            next_empty = next(
+                (name for name in names[index + 1 :] if name not in occupied), None
+            )
+            results.append(
+                SearchResult(
+                    id=row[0],
+                    location=row[1],
+                    description=row[2],
+                    distance=float(row[3]) if row[3] is not None else None,
+                    previous_empty=previous_empty,
+                    next_empty=next_empty,
+                )
+            )
+        return results
 
     def _canonical_location_names(self, names: Sequence[str]) -> list[str]:
         if not names:

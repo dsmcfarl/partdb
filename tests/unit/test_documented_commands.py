@@ -6,7 +6,7 @@ REPO = Path(__file__).resolve().parents[2]
 
 def test_documented_just_recipes_exist() -> None:
     justfile = (REPO / "justfile").read_text(encoding="utf-8")
-    recipes = set(re.findall(r"^([a-z][a-z-]*)(?: [^:]*)?:$", justfile, re.MULTILINE))
+    recipes = set(re.findall(r"^([a-z][a-z-]*)(?: [^:\n]*)?:$", justfile, re.MULTILINE))
     assert {
         "install",
         "up",

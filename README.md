@@ -137,13 +137,15 @@ Create a dated backup set containing a custom PostgreSQL dump, CSV exports, meta
 just backup
 ```
 
+Backups always read the `partdb` database in the Compose `db` service; `PARTDB_DSN` does not change their source.
+
 Validate checksums and perform a temporary restore before trusting a backup:
 
 ```bash
 just verify-backup "/path/to/dated-backup"
 ```
 
-`verify-backup` removes its disposable restore database even when validation fails. Do not modify a completed dated backup directory.
+`verify-backup` removes its disposable restore database even when validation fails. A backup restored under a newer pgvector image still verifies; the output reports both extension versions. Do not modify a completed dated backup directory.
 
 ## Recovery
 

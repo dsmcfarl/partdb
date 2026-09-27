@@ -3,11 +3,17 @@ import re
 from partdb.errors import InvalidLocationRange
 
 
-def natural_location_key(name: str) -> tuple[tuple[int, int | str], ...]:
+def natural_location_key(
+    name: str,
+) -> tuple[tuple[tuple[int, int | str], ...], str]:
     tokens = re.findall(r"\d+|\D+", name.strip())
-    return tuple(
-        (0, int(token)) if token.isdigit() else (1, token.upper()) for token in tokens
-    ) + ((2, name.upper()),)
+    return (
+        tuple(
+            (0, int(token)) if token.isdigit() else (1, token.upper())
+            for token in tokens
+        ),
+        name.upper(),
+    )
 
 
 def inclusive_location_range(names: list[str], start: str, end: str) -> list[str]:

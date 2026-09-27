@@ -16,6 +16,22 @@ def test_natural_order_matches_physical_labels() -> None:
     ]
 
 
+def test_location_sorts_before_its_extensions() -> None:
+    assert sorted(["5A10", "5A", "5A1"], key=natural_location_key) == [
+        "5A",
+        "5A1",
+        "5A10",
+    ]
+
+
+def test_range_can_start_at_a_prefix_location() -> None:
+    assert inclusive_location_range(["5A10", "5A", "5A1"], "5A", "5A10") == [
+        "5A",
+        "5A1",
+        "5A10",
+    ]
+
+
 def test_range_is_inclusive_and_case_insensitive() -> None:
     names = ["5A1", "5A2", "5A3", "5A8"]
     assert inclusive_location_range(names, "5a1", "5a3") == [

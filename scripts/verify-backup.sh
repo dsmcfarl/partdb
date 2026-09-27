@@ -8,6 +8,7 @@ fi
 
 repo=$(cd "$(dirname "$0")/.." && pwd)
 dir=$1
+[[ "$dir" == /* ]] || dir="$PWD/$dir"
 required=(partdb.custom locations.csv parts.csv metadata.txt SHA256SUMS)
 for name in "${required[@]}"; do
     if [[ ! -f "$dir/$name" ]]; then
@@ -65,11 +66,6 @@ if [[ "$actual_embeddings" != "$expected_embeddings" ]]; then
         "$expected_embeddings" "$actual_embeddings" >&2
     exit 1
 fi
-if [[ "$actual_vector" != "$expected_vector" ]]; then
-    printf 'vector version mismatch: expected %s, restored %s\n' \
-        "$expected_vector" "$actual_vector" >&2
-    exit 1
-fi
 if [[ "$actual_migration" != "$expected_migration" ]]; then
     printf 'migration mismatch: expected %s, restored %s\n' \
         "$expected_migration" "$actual_migration" >&2
@@ -79,5 +75,10 @@ fi
 printf 'locations=%s\n' "$actual_locations"
 printf 'parts=%s\n' "$actual_parts"
 printf 'embeddings=%s\n' "$actual_embeddings"
-printf 'vector=%s\n' "$actual_vector"
+# pg_restore installs the server's current pgvector, so report version drift only.
+if [[ "$actual_vector" == "$expected_vector" ]]; then
+    printf 'vector=%s\n' "$actual_vector"
+else
+    printf 'vector=%s (backup %s)\n' "$actual_vector" "$expected_vector"
+fi
 printf 'migration=%s\n' "$actual_migration"

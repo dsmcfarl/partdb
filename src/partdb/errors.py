@@ -24,3 +24,7 @@ class EmbeddingUnavailable(PartDBError):
 
 class InvalidLocationRange(PartDBError):
     pass
+
+
+class EmbeddingFailed(PartDBError):
+    pass

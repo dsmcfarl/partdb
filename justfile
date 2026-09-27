@@ -1,3 +1,5 @@
+set positional-arguments
+
 install:
 	uv sync --locked --all-extras
 
@@ -24,7 +26,7 @@ format:
 	uv run ruff format .
 
 backup *args:
-	scripts/backup-local.sh {{args}}
+	scripts/backup-local.sh "$@"
 
 verify-backup path:
-	scripts/verify-backup.sh "{{path}}"
+	scripts/verify-backup.sh "$1"

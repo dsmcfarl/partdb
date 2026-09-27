@@ -3,15 +3,9 @@ set -euo pipefail
 
 repo=$(cd "$(dirname "$0")/.." && pwd)
 root=${1:-"$HOME/Documents/Archive/Interests/Workshop/PartDB"}
+[[ "$root" == /* ]] || root="$PWD/$root"
 stamp=${PARTDB_BACKUP_TIMESTAMP:-$(date -u +%Y-%m-%dT%H%M%SZ)}
 database=${PARTDB_DATABASE:-partdb}
-dsn=${PARTDB_DSN:-postgresql://partdb@127.0.0.1:5435/$database}
-dsn_database=$(python3 -c 'import sys; from urllib.parse import urlparse; print(urlparse(sys.argv[1]).path.lstrip("/"))' "$dsn")
-if [[ "$dsn_database" != "$database" ]]; then
-    printf 'PARTDB_DSN database must match PARTDB_DATABASE (%s != %s)\n' \
-        "$dsn_database" "$database" >&2
-    exit 1
-fi
 dest="$root/$stamp-local"
 tmp="$dest.incomplete"
 
@@ -23,6 +17,8 @@ fi
 trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$tmp"
 cd "$repo"
+# Export CSVs from the same Compose server that pg_dump reads, never PARTDB_DSN.
+dsn="postgresql://partdb@$(docker compose port db 5432)/$database"
 
 docker compose exec -T db pg_dump -U partdb -d "$database" \
     --format=custom --no-owner --no-acl > "$tmp/partdb.custom"

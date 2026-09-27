@@ -215,14 +215,7 @@ def search(full_text: bool, description: str) -> None:
             details = []
             if result.distance is not None:
                 details.append(f"distance={result.distance:.3f}")
-            details.append(
-                "empty="
-                + ",".join(
-                    value
-                    for value in (result.previous_empty, result.next_empty)
-                    if value is not None
-                )
-            )
+            details.append(f"empty={result.previous_empty},{result.next_empty}")
             click.echo(
                 f"{result.location}: {result.description} "
                 f"(id={result.id}, {', '.join(details)})"
