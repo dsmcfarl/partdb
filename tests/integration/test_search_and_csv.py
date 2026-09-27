@@ -185,10 +185,14 @@ def test_semantic_cli_without_key_has_clear_error(
     seeded_service(conn)
     conn.commit()
     monkeypatch.setenv("PARTDB_DSN", database_dsn)
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("PARTDB_OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("PARTDB_OPENAI_API_KEY_CMD", raising=False)
 
     result = CliRunner().invoke(cli, ["search", "resistor"])
 
     assert result.exit_code != 0
-    assert "OPENAI_API_KEY is not configured" in result.output
+    assert (
+        "PARTDB_OPENAI_API_KEY or PARTDB_OPENAI_API_KEY_CMD must be set"
+        in result.output
+    )
     assert "Traceback" not in result.output

@@ -28,7 +28,7 @@ def test_readme_documents_operating_configuration_and_workflows() -> None:
     readme = (REPO / "README.md").read_text(encoding="utf-8")
     for required in (
         "PARTDB_DSN",
-        "OPENAI_API_KEY",
+        "PARTDB_OPENAI_API_KEY",
         "~/Documents/Archive/Interests/Workshop/PartDB/",
         "verify-backup",
         "partdb inventory --from 5A1 --through 5A8",

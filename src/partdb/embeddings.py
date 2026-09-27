@@ -1,7 +1,12 @@
 import os
-from typing import Protocol
+import subprocess
+from collections.abc import Callable, Mapping
+from typing import Any, Protocol
 
 from partdb.errors import EmbeddingFailed, EmbeddingUnavailable
+from partdb.secrets import SecretError, secret_from
+
+KEY_VAR = "PARTDB_OPENAI_API_KEY"
 
 
 class EmbeddingProvider(Protocol):
@@ -10,16 +15,22 @@ class EmbeddingProvider(Protocol):
 
 
 class OpenAIEmbeddingProvider:
-    def __init__(self) -> None:
-        if not os.getenv("OPENAI_API_KEY"):
-            raise EmbeddingUnavailable("OPENAI_API_KEY is not configured")
+    def __init__(
+        self,
+        env: Mapping[str, str] | None = None,
+        run: Callable[..., Any] = subprocess.run,
+    ) -> None:
+        try:
+            key = secret_from(os.environ if env is None else env, KEY_VAR, run=run)
+        except SecretError as exc:
+            raise EmbeddingUnavailable(str(exc)) from None
         try:
             from openai import OpenAI, OpenAIError
         except ImportError as exc:
             raise EmbeddingUnavailable(
                 "install the 'embeddings' extra to use semantic search"
             ) from exc
-        self._client = OpenAI()
+        self._client = OpenAI(api_key=key)
         self._error = OpenAIError
 
     def embed(self, text: str) -> list[float]:

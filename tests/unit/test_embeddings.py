@@ -14,9 +14,27 @@ def test_offline_module_does_not_import_openai(monkeypatch) -> None:
 
 
 def test_provider_requires_key_before_importing_client(monkeypatch) -> None:
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    with pytest.raises(EmbeddingUnavailable, match="OPENAI_API_KEY"):
-        OpenAIEmbeddingProvider()
+    monkeypatch.setitem(sys.modules, "openai", None)
+    with pytest.raises(EmbeddingUnavailable, match="PARTDB_OPENAI_API_KEY"):
+        OpenAIEmbeddingProvider(env={})
+
+
+def test_provider_ignores_generic_openai_key() -> None:
+    with pytest.raises(EmbeddingUnavailable, match="PARTDB_OPENAI_API_KEY"):
+        OpenAIEmbeddingProvider(env={"OPENAI_API_KEY": "sk-other"})
+
+
+def test_provider_passes_helper_key_to_client(monkeypatch) -> None:
+    openai = pytest.importorskip("openai")
+    seen = {}
+
+    class Client:
+        def __init__(self, api_key):
+            seen["api_key"] = api_key
+
+    monkeypatch.setattr(openai, "OpenAI", Client)
+    OpenAIEmbeddingProvider(env={"PARTDB_OPENAI_API_KEY_CMD": "printf 'sk-cmd\\n'"})
+    assert seen == {"api_key": "sk-cmd"}
 
 
 def test_provider_api_errors_become_domain_errors(monkeypatch) -> None:
@@ -29,9 +47,11 @@ def test_provider_api_errors_become_domain_errors(monkeypatch) -> None:
     class FailingClient:
         embeddings = FailingEmbeddings()
 
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+        def __init__(self, api_key):
+            pass
+
     monkeypatch.setattr(openai, "OpenAI", FailingClient)
-    provider = OpenAIEmbeddingProvider()
+    provider = OpenAIEmbeddingProvider(env={"PARTDB_OPENAI_API_KEY": "test-key"})
 
     with pytest.raises(EmbeddingFailed, match="rate limited"):
         provider.embed("resistor")

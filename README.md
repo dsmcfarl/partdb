@@ -78,7 +78,7 @@ Exports contain `locations.csv` and `parts.csv`. They are useful for human inspe
 
 All ordinary inventory operations work without OpenAI. New or changed descriptions have no embedding until refreshed, preventing stale vectors from representing edited text.
 
-Semantic search and refresh require the optional dependency (installed by `--all-extras`) and `OPENAI_API_KEY` supplied securely in the command environment:
+Semantic search and refresh require the optional dependency (installed by `--all-extras`) and `PARTDB_OPENAI_API_KEY` in the environment, or `PARTDB_OPENAI_API_KEY_CMD` (a command that prints it, run only by semantic commands):
 
 ```bash
 uv run partdb embeddings refresh
