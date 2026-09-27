@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-26-partdb-local-revival-design.md`
 
+**Status:** Complete. Merged in PR #1 on 2026-09-26 after the whole-branch review gate.
+
 ## Global Constraints
 
 - Keep the canonical checkout at `~/code/gh/dsmcfarl/partdb`; execute this plan in an isolated Git worktree created at implementation time.
@@ -77,7 +79,7 @@
 - Consumes: no new internal interfaces.
 - Produces: `partdb.cli:cli`, the `partdb` console script, and local DSN `postgresql://partdb@127.0.0.1:5435/partdb`.
 
-- [ ] **Step 1: Write the failing console-entry test**
+- [x] **Step 1: Write the failing console-entry test**
 
 ```python
 # tests/unit/test_cli_smoke.py
@@ -97,13 +99,13 @@ def test_version_is_installed() -> None:
     assert "partdb, version 0.2.0" in result.output
 ```
 
-- [ ] **Step 2: Run the test and verify the missing module failure**
+- [x] **Step 2: Run the test and verify the missing module failure**
 
 Run: `uv run --with pytest pytest tests/unit/test_cli_smoke.py -v`
 
 Expected: FAIL during collection because `partdb.cli` does not exist.
 
-- [ ] **Step 3: Replace project metadata with an installable package**
+- [x] **Step 3: Replace project metadata with an installable package**
 
 Use this structure in `pyproject.toml`:
 
@@ -172,7 +174,7 @@ if __name__ == "__main__":
     cli()
 ```
 
-- [ ] **Step 4: Add the localhost-only Compose database**
+- [x] **Step 4: Add the localhost-only Compose database**
 
 Create `compose.yaml`:
 
@@ -211,7 +213,7 @@ Add these patterns to `.gitignore`:
 /audit-*.md
 ```
 
-- [ ] **Step 5: Regenerate the lock and verify installation**
+- [x] **Step 5: Regenerate the lock and verify installation**
 
 Run:
 
@@ -225,7 +227,7 @@ uv run pytest tests/unit/test_cli_smoke.py -v
 
 Expected: lock succeeds; console commands run; 2 tests pass.
 
-- [ ] **Step 6: Verify Compose networking and persistence**
+- [x] **Step 6: Verify Compose networking and persistence**
 
 Run:
 
@@ -239,7 +241,7 @@ docker compose exec -T db psql -U partdb -d partdb -Atqc 'select 1;'
 
 Expected: published endpoint is `127.0.0.1:5435`; both SQL commands succeed.
 
-- [ ] **Step 7: Commit the runtime foundation**
+- [x] **Step 7: Commit the runtime foundation**
 
 ```bash
 git add pyproject.toml uv.lock compose.yaml .gitignore src/partdb/cli.py src/partdb/main.py tests/unit/test_cli_smoke.py
@@ -262,7 +264,7 @@ git commit -m "build: add reproducible local runtime"
 - Consumes: `PARTDB_DSN` or default local DSN.
 - Produces: `database.resolve_dsn() -> str`, `database.connect(dsn: str | None = None) -> psycopg.Connection`, `migrate.apply_migrations(conn) -> list[str]`, and `partdb db migrate`.
 
-- [ ] **Step 1: Add disposable-database fixtures**
+- [x] **Step 1: Add disposable-database fixtures**
 
 Create `tests/conftest.py` with a session fixture that connects to `PARTDB_TEST_ADMIN_DSN` (default `postgresql://partdb@127.0.0.1:5435/postgres`), creates a uniquely named database using `psycopg.sql.Identifier`, yields its DSN, and drops that quoted database with `WITH (FORCE)` in `finally`. Add a function fixture that connects to that DSN and rolls back or truncates between tests.
 
@@ -288,7 +290,7 @@ def database_dsn() -> Iterator[str]:
             )
 ```
 
-- [ ] **Step 2: Write failing fresh, legacy, and idempotency migration tests**
+- [x] **Step 2: Write failing fresh, legacy, and idempotency migration tests**
 
 ```python
 def test_migrate_fresh_database(database_dsn: str) -> None:
@@ -326,13 +328,13 @@ def test_second_migration_run_is_a_noop(database_dsn: str) -> None:
         assert apply_migrations(conn) == []
 ```
 
-- [ ] **Step 3: Run migration tests and verify failure**
+- [x] **Step 3: Run migration tests and verify failure**
 
 Run: `uv run pytest tests/integration/test_migrations.py -v -m integration`
 
 Expected: FAIL because `database.py`, migration SQL, and `apply_migrations` do not exist.
 
-- [ ] **Step 4: Implement connection resolution**
+- [x] **Step 4: Implement connection resolution**
 
 Create `src/partdb/database.py`:
 
@@ -351,7 +353,7 @@ def connect(dsn: str | None = None) -> psycopg.Connection:
     return psycopg.connect(resolve_dsn(dsn))
 ```
 
-- [ ] **Step 5: Add baseline and verification SQL**
+- [x] **Step 5: Add baseline and verification SQL**
 
 `001_initial.sql` must contain:
 
@@ -375,7 +377,7 @@ ALTER TABLE locations
     ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ NULL;
 ```
 
-- [ ] **Step 6: Implement ordered migration application**
+- [x] **Step 6: Implement ordered migration application**
 
 `apply_migrations` must create `schema_migrations(version text primary key, applied_at timestamptz not null default now())`, discover `*.sql` through `importlib.resources.files("partdb.migrations")`, sort by filename, and execute each unrecorded file plus its insert into `schema_migrations` in one `conn.transaction()`.
 
@@ -406,7 +408,7 @@ def apply_migrations(conn: psycopg.Connection) -> list[str]:
     return completed
 ```
 
-- [ ] **Step 7: Add and test `partdb db migrate`**
+- [x] **Step 7: Add and test `partdb db migrate`**
 
 Add a `db` Click group and `migrate` command that opens `database.connect()`, calls `apply_migrations`, and prints either the applied versions or `database already current`. Translate `psycopg.Error` into `click.ClickException`.
 
@@ -419,7 +421,7 @@ PARTDB_DSN=postgresql://partdb@127.0.0.1:5435/partdb uv run partdb db migrate
 
 Expected: all migration tests pass and the local database reports both versions.
 
-- [ ] **Step 8: Commit migration infrastructure**
+- [x] **Step 8: Commit migration infrastructure**
 
 ```bash
 git add src/partdb/database.py src/partdb/migrate.py src/partdb/migrations tests/conftest.py tests/integration/test_migrations.py src/partdb/cli.py
@@ -440,7 +442,7 @@ git commit -m "feat: add versioned database migrations"
 - Consumes: migrated `locations` and `parts` tables and `database.connect()`.
 - Produces: `Part`, `Location`, `InventoryService`, domain exceptions, and existing `add`, `list`, `update`, `move`, and `delete` CLI forms.
 
-- [ ] **Step 1: Define tests for CRUD, stale-vector removal, and domain failures**
+- [x] **Step 1: Define tests for CRUD, stale-vector removal, and domain failures**
 
 Tests must establish this behavior:
 
@@ -478,7 +480,7 @@ def test_unknown_part_delete_does_not_change_rows(conn) -> None:
 
 CLI tests must cover existing syntax, integer validation, an aborted delete, `delete --id 999 --yes`, and deleting a populated location without cascading its parts.
 
-- [ ] **Step 2: Run focused tests and verify failure**
+- [x] **Step 2: Run focused tests and verify failure**
 
 Run:
 
@@ -488,7 +490,7 @@ uv run pytest tests/integration/test_inventory.py tests/integration/test_cli_inv
 
 Expected: FAIL because service types and commands do not exist.
 
-- [ ] **Step 3: Add typed records and domain errors**
+- [x] **Step 3: Add typed records and domain errors**
 
 Use frozen dataclasses:
 
@@ -509,13 +511,13 @@ class Part:
 
 Define `PartDBError`, `LocationNotFound`, `PartNotFound`, `LocationNotEmpty`, and `DuplicateLocation` in `errors.py`.
 
-- [ ] **Step 4: Implement `InventoryService` CRUD**
+- [x] **Step 4: Implement `InventoryService` CRUD**
 
 Implement `InventoryService` with a constructor accepting `psycopg.Connection` and these exact public signatures: `list_locations() -> list[Location]`, `list_parts(location: str | None = None) -> list[Part]`, `get_part(part_id: int) -> Part`, `part_count() -> int`, `add_location(name: str) -> Location`, `add_part(location: str, description: str) -> Part`, `update_part(part_id: int, description: str) -> Part`, `move_part(part_id: int, location: str) -> Part`, `delete_part(part_id: int) -> None`, and `delete_location(name: str) -> None`.
 
 Validate nonblank names/descriptions. Use `RETURNING` to distinguish success from unknown IDs. `update_part` sets `embedding = NULL`. `delete_location` catches foreign-key violations and raises `LocationNotEmpty`. Service methods do not commit; the connection context used by the CLI owns commit/rollback.
 
-- [ ] **Step 5: Recreate existing CLI behavior through the service**
+- [x] **Step 5: Recreate existing CLI behavior through the service**
 
 Implement and retain these forms:
 
@@ -531,7 +533,7 @@ partdb delete --location LOCATION [--yes]
 
 Use `type=int` for IDs. Reject both/neither delete targets. Prompt before deletion unless `--yes` is present. Wrap each command with a connection context and translate `PartDBError`/`psycopg.Error` into `click.ClickException`.
 
-- [ ] **Step 6: Run tests, then run a local smoke sequence**
+- [x] **Step 6: Run tests, then run a local smoke sequence**
 
 Run:
 
@@ -544,7 +546,7 @@ PARTDB_DSN=postgresql://partdb@127.0.0.1:5435/partdb uv run partdb list TEST1
 
 Expected: tests pass and the smoke part is listed. Remove it and `TEST1` with explicit `--yes` commands before continuing.
 
-- [ ] **Step 7: Commit offline CRUD**
+- [x] **Step 7: Commit offline CRUD**
 
 ```bash
 git add src/partdb/models.py src/partdb/errors.py src/partdb/inventory.py src/partdb/cli.py tests/integration/test_inventory.py tests/integration/test_cli_inventory.py
@@ -564,7 +566,7 @@ git commit -m "feat: restore offline inventory commands"
 - Consumes: `InventoryService`, migrated vector column, optional `openai` package and `OPENAI_API_KEY`.
 - Produces: `EmbeddingProvider.embed(text: str) -> list[float]`, `OpenAIEmbeddingProvider`, `InventoryService.search_full_text`, `search_semantic`, `refresh_embeddings`, `dump_csv`, and `load_csv`.
 
-- [ ] **Step 1: Write tests for an absent OpenAI dependency and fake-provider refresh**
+- [x] **Step 1: Write tests for an absent OpenAI dependency and fake-provider refresh**
 
 ```python
 class FakeProvider:
@@ -589,7 +591,7 @@ def test_refresh_only_missing_embeddings(conn) -> None:
 
 Integration tests must also cover web-style full-text queries, semantic exclusion of NULL embeddings, CSV headers and row round trip, blank/malformed CSV rejection with rollback, and `search` without a key returning a clear nonzero error rather than an import traceback.
 
-- [ ] **Step 2: Run tests and verify failure**
+- [x] **Step 2: Run tests and verify failure**
 
 Run:
 
@@ -599,7 +601,7 @@ uv run pytest tests/unit/test_embeddings.py tests/integration/test_search_and_cs
 
 Expected: FAIL because embedding and search interfaces do not exist.
 
-- [ ] **Step 3: Implement lazy optional embedding support**
+- [x] **Step 3: Implement lazy optional embedding support**
 
 Define a protocol and lazy adapter:
 
@@ -631,7 +633,7 @@ class OpenAIEmbeddingProvider:
 
 Define `EmbeddingUnavailable` under `errors.py`. No module imported by offline commands may import `openai` at module load time.
 
-- [ ] **Step 4: Implement search and refresh queries**
+- [x] **Step 4: Implement search and refresh queries**
 
 - Full text: `to_tsvector('simple', description) @@ websearch_to_tsquery('simple', %s)`.
 - Semantic: `WHERE embedding IS NOT NULL ORDER BY embedding <=> %s::vector LIMIT %s`.
@@ -639,7 +641,7 @@ Define `EmbeddingUnavailable` under `errors.py`. No module imported by offline c
 
 Keep the existing nearest-empty-location fields in search results and cover both directions in integration tests.
 
-- [ ] **Step 5: Implement transactional CSV dump/load**
+- [x] **Step 5: Implement transactional CSV dump/load**
 
 Preserve the public file names and headers:
 
@@ -650,7 +652,7 @@ parts.csv: location,description
 
 Write UTF-8 with `newline=""`. Validate both complete files and every row before inserting. Reject duplicate locations, unknown part locations, blank cells, and extra/missing columns; any error must leave the database unchanged.
 
-- [ ] **Step 6: Wire CLI commands**
+- [x] **Step 6: Wire CLI commands**
 
 ```text
 partdb search [--full-text] DESCRIPTION
@@ -661,7 +663,7 @@ partdb embeddings refresh [--all]
 
 Default `search` remains semantic for backward compatibility; `--full-text` is always offline. `embeddings refresh` instantiates `OpenAIEmbeddingProvider` only after command dispatch.
 
-- [ ] **Step 7: Run focused and complete tests**
+- [x] **Step 7: Run focused and complete tests**
 
 Run:
 
@@ -672,7 +674,7 @@ uv run pytest -v
 
 Expected: all tests pass without setting `OPENAI_API_KEY`.
 
-- [ ] **Step 8: Commit search, CSV, and optional embeddings**
+- [x] **Step 8: Commit search, CSV, and optional embeddings**
 
 ```bash
 git add src/partdb/embeddings.py src/partdb/errors.py src/partdb/inventory.py src/partdb/cli.py tests/unit/test_embeddings.py tests/integration/test_search_and_csv.py
@@ -694,7 +696,7 @@ git commit -m "feat: add offline search and optional embeddings"
 - Consumes: `locations.verified_at`, `InventoryService`, Click confirmation.
 - Produces: `natural_location_key(name)`, `inclusive_location_range(names, start, end)`, `InventoryLocation`, verification service methods, and `inventory`/`verify` commands.
 
-- [ ] **Step 1: Write natural-order and invalid-range unit tests**
+- [x] **Step 1: Write natural-order and invalid-range unit tests**
 
 Pin these sequences and failures:
 
@@ -725,7 +727,7 @@ def test_invalid_ranges_fail(names, start, end, message) -> None:
         inclusive_location_range(names, start, end)
 ```
 
-- [ ] **Step 2: Write verification integration and CLI tests**
+- [x] **Step 2: Write verification integration and CLI tests**
 
 Cover:
 
@@ -740,7 +742,7 @@ Cover:
 - Unknown, reversed, and ambiguous ranges write nothing.
 - `verify status --unverified` reports totals and naturally ordered names.
 
-- [ ] **Step 3: Run tests and verify failure**
+- [x] **Step 3: Run tests and verify failure**
 
 Run:
 
@@ -750,7 +752,7 @@ uv run pytest tests/unit/test_location_order.py tests/integration/test_verificat
 
 Expected: FAIL because range and verification APIs do not exist.
 
-- [ ] **Step 4: Implement natural ordering and endpoint selection**
+- [x] **Step 4: Implement natural ordering and endpoint selection**
 
 Tokenize alternating digit and nondigit runs. Numeric runs sort as integers; text runs sort uppercase. Include the uppercase full name as a final deterministic tiebreaker:
 
@@ -765,13 +767,13 @@ def natural_location_key(name: str) -> tuple[tuple[int, int | str], ...]:
 
 `inclusive_location_range` builds a casefolded endpoint index, rejects duplicate casefolded names as ambiguous, validates both endpoints, sorts all names naturally, rejects reversed indexes, and returns the inclusive slice.
 
-- [ ] **Step 5: Implement inventory grouping and verification methods**
+- [x] **Step 5: Implement inventory grouping and verification methods**
 
 Add `InventoryLocation(name, verified_at, parts)` and these exact `InventoryService` signatures: `inventory_range(start: str, end: str) -> list[InventoryLocation]`, `mark_verified(names: Sequence[str], verified_at: datetime | None = None) -> int`, `clear_verification(names: Sequence[str]) -> int`, and `verification_status(unverified_only: bool = False) -> list[Location]`.
 
 Default `verified_at` to timezone-aware UTC `datetime.now(timezone.utc)`. Resolve and validate every name before executing a single update.
 
-- [ ] **Step 6: Add inventory and verification commands**
+- [x] **Step 6: Add inventory and verification commands**
 
 Implement:
 
@@ -784,7 +786,7 @@ partdb verify status [--unverified]
 
 Display all locations and parts before the confirmation prompt for range marking. Format timestamps as ISO 8601 UTC and unverified locations as `unverified`.
 
-- [ ] **Step 7: Run tests and manually inspect the example range**
+- [x] **Step 7: Run tests and manually inspect the example range**
 
 Run:
 
@@ -794,7 +796,7 @@ uv run pytest tests/unit/test_location_order.py tests/integration/test_verificat
 
 Expected: tests pass; the CLI integration output is naturally ordered and includes empty locations. The real `5A1` through `5A8` smoke check occurs after restoration in Task 9.
 
-- [ ] **Step 8: Commit verification workflow**
+- [x] **Step 8: Commit verification workflow**
 
 ```bash
 git add src/partdb/location_order.py src/partdb/models.py src/partdb/inventory.py src/partdb/cli.py tests/unit/test_location_order.py tests/integration/test_verification.py tests/integration/test_cli_verification.py
@@ -813,7 +815,7 @@ git commit -m "feat: add physical location verification"
 - Consumes: migrated inventory database.
 - Produces: `AuditFinding`, `AuditReport`, `normalize_description`, `run_audit(conn)`, `render_markdown(report)`, and `partdb audit`.
 
-- [ ] **Step 1: Write normalization and rendering tests**
+- [x] **Step 1: Write normalization and rendering tests**
 
 ```python
 def test_normalize_description_collapses_case_and_whitespace() -> None:
@@ -832,19 +834,19 @@ def test_render_markdown_orders_severity_and_code() -> None:
     assert text.index("blank_description") < text.index("normalized_duplicate")
 ```
 
-- [ ] **Step 2: Write an integration fixture containing every finding class**
+- [x] **Step 2: Write an integration fixture containing every finding class**
 
 Seed locations `5A1`, `5a1`, `5A2`, and `BAD LOCATION`; seed blank, exact-duplicate, normalized-duplicate, and missing-embedding parts. In the disposable test database, drop `parts_location_fkey`, insert one orphan, run and assert the audit, delete the orphan, and recreate the foreign key before fixture cleanup. Assert codes and affected IDs/names, plus verified/unverified totals.
 
 Also test that `partdb audit --output report.md` exits 0 with findings and that a bad DSN exits nonzero without creating the output file.
 
-- [ ] **Step 3: Run audit tests and verify failure**
+- [x] **Step 3: Run audit tests and verify failure**
 
 Run: `uv run pytest tests/unit/test_audit.py tests/integration/test_audit.py -v`
 
 Expected: FAIL because audit types and command do not exist.
 
-- [ ] **Step 4: Implement immutable audit models and normalization**
+- [x] **Step 4: Implement immutable audit models and normalization**
 
 ```python
 @dataclass(frozen=True)
@@ -865,7 +867,7 @@ def normalize_description(value: str) -> str:
     return " ".join(value.casefold().split())
 ```
 
-- [ ] **Step 5: Implement read-only checks**
+- [x] **Step 5: Implement read-only checks**
 
 `run_audit` must issue only `SELECT` statements and report:
 
@@ -880,11 +882,11 @@ def normalize_description(value: str) -> str:
 
 Include location, part, verified, and unverified counts. Render deterministic Markdown with summary first and findings grouped `error`, `warning`, `info`, then code/message.
 
-- [ ] **Step 6: Add `partdb audit` output behavior**
+- [x] **Step 6: Add `partdb audit` output behavior**
 
 `partdb audit` writes Markdown to stdout. `--output PATH` writes atomically using a sibling temporary file followed by `os.replace`; create parent directories only when explicitly supplied. Findings do not change exit status. Database or write failures return nonzero.
 
-- [ ] **Step 7: Run tests and verify audit performs no writes**
+- [x] **Step 7: Run tests and verify audit performs no writes**
 
 Run:
 
@@ -895,7 +897,7 @@ uv run pytest -v
 
 Expected: all tests pass. The integration test compares table snapshots before and after `run_audit` and finds no changes.
 
-- [ ] **Step 8: Commit audit support**
+- [x] **Step 8: Commit audit support**
 
 ```bash
 git add src/partdb/audit.py src/partdb/cli.py tests/unit/test_audit.py tests/integration/test_audit.py
@@ -915,19 +917,19 @@ git commit -m "feat: add read-only inventory audit"
 - Consumes: running Compose database, installed CLI, destination path.
 - Produces: dated backup directory containing `partdb.custom`, `locations.csv`, `parts.csv`, `metadata.txt`, and `SHA256SUMS`; restore validation with a disposable database.
 
-- [ ] **Step 1: Write end-to-end script tests**
+- [x] **Step 1: Write end-to-end script tests**
 
 The test invokes scripts through `subprocess.run` with `PARTDB_BACKUP_TIMESTAMP=2099-01-02T030405Z` and a `tmp_path / "archive with spaces"`. Assert exact artifact names, `shasum -a 256 -c SHA256SUMS` success, and validation output containing matching location/part counts.
 
 Create a truncated copy with `dump.write_bytes(dump.read_bytes()[:100])`; assert `verify-backup.sh` exits nonzero and leaves no database matching `partdb_restore_*` in `pg_database`.
 
-- [ ] **Step 2: Run the backup test and verify failure**
+- [x] **Step 2: Run the backup test and verify failure**
 
 Run: `uv run pytest tests/integration/test_backup_scripts.py -v -m integration`
 
 Expected: FAIL because the scripts do not exist.
 
-- [ ] **Step 3: Implement `backup-local.sh` defensively**
+- [x] **Step 3: Implement `backup-local.sh` defensively**
 
 Start with:
 
@@ -962,7 +964,7 @@ printf '%s\n' "$dest"
 
 Before creating `$tmp`, fail if either `$dest` or `$tmp` already exists. Quote every expansion. Make the script executable.
 
-- [ ] **Step 4: Implement restore validation with guaranteed cleanup**
+- [x] **Step 4: Implement restore validation with guaranteed cleanup**
 
 `verify-backup.sh BACKUP_DIR` must:
 
@@ -984,11 +986,11 @@ docker compose exec -T db pg_restore -U partdb -d "$restore_db" \
   --no-owner --no-acl --exit-on-error < "$dir/partdb.custom"
 ```
 
-- [ ] **Step 5: Add Just recipes and ignore incomplete artifacts**
+- [x] **Step 5: Add Just recipes and ignore incomplete artifacts**
 
 Provide `backup *args` and `verify-backup path` recipes that call the scripts. Ignore `*.incomplete` and local `backups/` paths.
 
-- [ ] **Step 6: Run corruption, spaces, and cleanup tests**
+- [x] **Step 6: Run corruption, spaces, and cleanup tests**
 
 Run:
 
@@ -1000,7 +1002,7 @@ just verify-backup "$(find /tmp/partdb-backup-smoke -mindepth 1 -maxdepth 1 -typ
 
 Expected: tests pass; valid backup verifies; corrupt backup test exits nonzero and cleanup assertion passes.
 
-- [ ] **Step 7: Commit backup tooling**
+- [x] **Step 7: Commit backup tooling**
 
 ```bash
 git add scripts/backup-local.sh scripts/verify-backup.sh tests/integration/test_backup_scripts.py .gitignore justfile
@@ -1019,17 +1021,17 @@ git commit -m "feat: add verified local database backups"
 - Consumes: all application and script commands from Tasks 1–7.
 - Produces: one-command local setup/test workflows and CI verification.
 
-- [ ] **Step 1: Write a documentation-command consistency test**
+- [x] **Step 1: Write a documentation-command consistency test**
 
 Read `README.md` and `justfile`; assert the documented recipes `install`, `up`, `down`, `migrate`, `test`, `lint`, `backup`, and `verify-backup` all exist. Assert README mentions `PARTDB_DSN`, optional `OPENAI_API_KEY`, the Archive path, restore validation, and verification commands.
 
-- [ ] **Step 2: Run the consistency test and verify failure**
+- [x] **Step 2: Run the consistency test and verify failure**
 
 Run: `uv run pytest tests/unit/test_documented_commands.py -v`
 
 Expected: FAIL because the full recipes and runbook are absent.
 
-- [ ] **Step 3: Replace the Just recipes**
+- [x] **Step 3: Replace the Just recipes**
 
 Define:
 
@@ -1058,7 +1060,7 @@ verify-backup path:
 
 Use valid Just syntax and tabs/spaces accepted by the installed Just version.
 
-- [ ] **Step 4: Rewrite README as the operating runbook**
+- [x] **Step 4: Rewrite README as the operating runbook**
 
 Document in order:
 
@@ -1076,7 +1078,7 @@ Document in order:
 
 Do not include real inventory descriptions, counts that will become stale, credentials, or dump paths from a particular run.
 
-- [ ] **Step 5: Add GitHub Actions**
+- [x] **Step 5: Add GitHub Actions**
 
 Create `.github/workflows/ci.yml` triggered by pushes and pull requests. Use Python 3.11 and `astral-sh/setup-uv`. Add a `pgvector/pgvector:0.8.6-pg17` service with `POSTGRES_USER=partdb`, `POSTGRES_DB=partdb`, `POSTGRES_HOST_AUTH_METHOD=trust`, port `5435:5432`, and `pg_isready` health options.
 
@@ -1096,7 +1098,7 @@ uv run ruff format --check .
 uv run pytest -v
 ```
 
-- [ ] **Step 6: Run the same gate locally**
+- [x] **Step 6: Run the same gate locally**
 
 Run:
 
@@ -1109,7 +1111,7 @@ uv run pytest -v
 
 Expected: every command exits 0.
 
-- [ ] **Step 7: Commit CI and documentation**
+- [x] **Step 7: Commit CI and documentation**
 
 ```bash
 git add .github/workflows/ci.yml justfile README.md tests/unit/test_documented_commands.py
@@ -1128,11 +1130,11 @@ git commit -m "docs: add local operations and CI runbook"
 - Consumes: Euclid `service=partdb`, SSH access, local Compose database, migration and backup commands.
 - Produces: authoritative local database, verified pre/post backup sets, private audit report, and acceptance evidence.
 
-- [ ] **Step 1: Load the filing instructions before creating Archive artifacts**
+- [x] **Step 1: Load the filing instructions before creating Archive artifacts**
 
 Read the `fileit` skill and confirm `~/Documents/Archive/Interests/Workshop/PartDB/` matches the Archive taxonomy. If the skill requires a different final directory, use that directory consistently for all remaining commands and record it in the acceptance notes; do not place artifacts in Git.
 
-- [ ] **Step 2: Capture immutable Euclid source metadata**
+- [x] **Step 2: Capture immutable Euclid source metadata**
 
 Create a local staging directory with mode 700. Through SSH with `RemoteCommand=none`, record only non-secret metadata:
 
@@ -1147,7 +1149,7 @@ embeddings=<count>
 
 Expected source counts from discovery are 195 locations, 201 parts, and 201 embeddings. If live counts differ, stop and investigate rather than forcing the old expected values.
 
-- [ ] **Step 3: Create fresh Euclid dump and CSV exports**
+- [x] **Step 3: Create fresh Euclid dump and CSV exports**
 
 On Euclid, use its PostgreSQL 17 client:
 
@@ -1166,11 +1168,11 @@ psql "service=partdb" --csv -c \
 
 Copy the dump, two CSV files, and source checksum file to the dated pre-cutover Archive directory. Verify the three copied files against the source checksums, add the metadata file from Step 2, then replace the source checksum file with a local `SHA256SUMS` covering the dump, both CSV files, and metadata. Verify that final manifest locally, then delete only the temporary `/tmp` copies from Euclid.
 
-- [ ] **Step 4: Validate the Euclid backup before touching local authority**
+- [x] **Step 4: Validate the Euclid backup before touching local authority**
 
 Run `pg_restore --list` using the local PostgreSQL 17 container against the copied custom dump. Restore it into a disposable database, query source counts, and drop the disposable database in a cleanup trap. Do not proceed unless location, part, and embedding counts match Step 2.
 
-- [ ] **Step 5: Reset only the local Compose volume and restore real data**
+- [x] **Step 5: Reset only the local Compose volume and restore real data**
 
 Confirm the current directory is the implementation worktree and the Compose project is PartDB. Then:
 
@@ -1187,7 +1189,7 @@ PARTDB_DSN=postgresql://partdb@127.0.0.1:5435/partdb uv run partdb db migrate
 
 The `down -v` command is permitted only here, before the Mac database becomes authoritative. It must not appear in ordinary runbook commands.
 
-- [ ] **Step 6: Compare restored data and run read-only smoke tests**
+- [x] **Step 6: Compare restored data and run read-only smoke tests**
 
 Query and record:
 
@@ -1210,11 +1212,11 @@ uv run partdb verify status --unverified
 
 Capture counts, not full private output, in acceptance notes. Do not run modifying inventory commands against the restored data.
 
-- [ ] **Step 7: Create and validate the post-migration backup**
+- [x] **Step 7: Create and validate the post-migration backup**
 
 Run `scripts/backup-local.sh` with the Archive root. Run `scripts/verify-backup.sh` on the emitted directory. Confirm its metadata matches the authoritative database and includes migration `002_location_verification`.
 
-- [ ] **Step 8: Generate the private initial audit**
+- [x] **Step 8: Generate the private initial audit**
 
 Run:
 
@@ -1225,7 +1227,7 @@ uv run partdb audit --output \
 
 Review the report only for structural correctness: summary present, all finding sections render, and database counts match. Do not change inventory records during this task.
 
-- [ ] **Step 9: Run the final local verification gate**
+- [x] **Step 9: Run the final local verification gate**
 
 Run fresh:
 
@@ -1240,7 +1242,7 @@ git status --short
 
 Expected: install succeeds; lint and tests exit 0; database service is healthy; no real data or generated private report appears in Git status.
 
-- [ ] **Step 10: Record cutover and commit only defect fixes**
+- [x] **Step 10: Record cutover and commit only defect fixes**
 
 If acceptance required source changes, add a regression test first, run the owning test and full gate, then commit the tested fix. Otherwise make no artificial acceptance commit. Record in the final handoff:
 

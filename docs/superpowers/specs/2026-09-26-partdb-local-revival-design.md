@@ -1,7 +1,7 @@
 # PartDB Local Revival Design
 
 **Date:** 2026-09-26
-**Status:** Approved
+**Status:** Implemented (PR #1, merged 2026-09-26)
 
 ## Purpose
 
@@ -233,3 +233,11 @@ Local acceptance additionally verifies:
 After acceptance, implementation stops. The next conversation brainstorms product direction and iterates on the human workflow for physically reviewing batches of bins. The first expected workflow is to request a range such as `5A1` through `5A8`, review displayed contents, provide corrections where necessary, and explicitly confirm verified locations.
 
 No interface beyond the stabilized CLI is selected by this design. The modular boundaries preserve the option to add a web UI, mobile workflow, or agent integration later without replacing the inventory and database layers.
+
+## Post-Acceptance Decisions
+
+Recorded 2026-09-26, after PR #1 merged:
+
+- **Next phase:** the physical bin-review workflow. Broader product direction (web, mobile, or agent interfaces) is deferred until that workflow is settled.
+- **Euclid:** the Euclid `partdb` database remains available as a fallback until physical verification of the inventory is complete, and is shut down then.
+- **Scheduled backups:** deferred until the database's permanent host is decided. Until then, run `just backup` manually before modifying sessions.
