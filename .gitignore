@@ -4,3 +4,14 @@ __pycache__/
 /build/
 /parts.csv
 /locations.csv
+/.worktrees/
+.env
+.coverage
+.pytest_cache/
+.ruff_cache/
+.venv/
+*.custom
+*.dump
+/audit-*.md
+*.incomplete
+/backups/

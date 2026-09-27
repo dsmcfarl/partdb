@@ -1,13 +1,40 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
 [project]
 name = "partdb"
-version = "0.1.0"
-description = "A tool for keeping track of where parts are stored."
+version = "0.2.0"
+description = "A tool for keeping track of where workshop parts are stored."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "click>=8.1.7",
-    "openai>=1.55.0",
-    "psycopg>=3.2.3",
+    "click>=8.1,<9",
+    "psycopg[binary]>=3.2,<4",
 ]
+
+[project.optional-dependencies]
+embeddings = ["openai>=1.55,<4"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3,<9",
+    "pytest-cov>=6,<8",
+    "ruff>=0.8,<1",
+]
+
 [project.scripts]
-partdb = "partdb.main:cli"
+partdb = "partdb.cli:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/partdb"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers --import-mode=importlib"
+markers = ["integration: requires PostgreSQL/pgvector"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+extend-exclude = ["docs/superpowers"]

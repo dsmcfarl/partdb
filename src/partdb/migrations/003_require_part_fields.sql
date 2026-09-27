@@ -1,0 +1,3 @@
+ALTER TABLE parts
+    ALTER COLUMN location SET NOT NULL,
+    ALTER COLUMN description SET NOT NULL;
