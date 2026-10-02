@@ -88,9 +88,13 @@ The entire plan is validated before any change. Any of these failures rejects th
 
 - Malformed JSON, missing `bins` or `parts`, wrong types, or unknown keys.
 - A listed bin that does not exist and lacks `create: true`.
-- A part recorded in a listed bin that appears in neither its `parts` nor its `remove`.
+- A part recorded in a listed bin that appears in neither its `parts` nor its `remove`, and is not listed in another bin's `parts` in the same plan. Listing a part in another plan bin's `parts` moves it there and accounts for it in its source bin.
 - A part ID that does not exist.
-- A part ID listed in more than one bin's `parts`, or both listed and removed.
+- A part ID listed in more than one bin's `parts`, or removed by more than one bin.
+- A part ID that is listed in some bin's `parts` and also removed with `"delete"`.
+- A part ID removed with a move to one bin but listed in a different bin's `parts`.
+- A `remove` move to the same bin the part is removed from.
+- Two plan bins that name the same location, including names differing only in case, or a JSON object with a duplicated key.
 - A `remove` entry for a part not recorded in that bin.
 - A `remove` move to a location that neither exists nor is created by the same plan.
 - A `remove` move to a bin listed in the same plan that does not list that part in its `parts`.
@@ -98,7 +102,7 @@ The entire plan is validated before any change. Any of these failures rejects th
 
 ### Execution
 
-Validated changes run in one database transaction in this order: create locations, update and move existing parts, add new parts, delete removed parts, then mark verification. A failure at any point rolls back the whole plan.
+Validated changes run in one database transaction: create requested locations first, then apply each bin's changes in plan order, then mark verification. A failure at any point rolls back the whole plan.
 
 Verification applies only to bins listed in `bins`. A location that only receives a part through a `remove` move is not verified.
 
@@ -169,7 +173,7 @@ The README documents `apply`, `--expect-empty`, the search label, and the `verif
 
 1. `just up`, then `just backup`; report the backup path.
 2. `partdb verify status --unverified` to see remaining bins.
-3. Start the `~/Downloads` photo watcher with the Monitor tool: poll every second for new image files, wait until the file size settles, and re-arm when the monitor expires. HEIC files get a JPEG preview in the scratchpad. Previews and crops are never filed.
+3. Start the `~/Downloads` photo watcher with the Monitor tool, running the skill's `scripts/watch_downloads.sh` with a state file in the scratchpad. The script polls every second for new image files and reports each one once, after its size settles. Restarting it with the same state file when the monitor expires reports photos that arrived meanwhile and never repeats one. HEIC files get a JPEG preview in the scratchpad. Previews and crops are never filed.
 
 **Loop:**
 
