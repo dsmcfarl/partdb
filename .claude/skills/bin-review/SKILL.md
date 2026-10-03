@@ -24,9 +24,10 @@ The local database is the real, authoritative inventory. This repository is publ
 
 ## The Loop
 
-1. **A photo arrives**, usually unannounced. Read the bin labels in the frame, then run `uv run partdb inventory --from <first> --through <last>` (or one bin twice) for those bins. If no label is visible, ask which bin it is.
+1. **A photo arrives**, usually unannounced. Read the bin labels in the frame, then run `uv run partdb inventory --from <first> --through <last>` (or one bin twice) for those bins. If no label is visible, ask which bin it is. If the photo is not of a bin (a screenshot, an instrument screen), say so in one line and leave it in Downloads unfiled.
+   - **Photo sets.** When Dan says he is sending N photos of a bin, wait for all N, then reply with one table for the set. When he doesn't give a count ("sending some photos"), ask him to say `done` when finished, and wait for it.
 2. **Look closely.** Downscale a copy for viewing (`sips -Z 2000 <photo> --out <scratchpad>/preview.jpg`; for HEIC add `-s format jpeg`). For colour bands, small markings, and part numbers, crop the full-resolution original with Pillow (`uv run --with pillow python ...`). Never file previews or crops.
-3. **Reply with one table per photo**, and nothing after it that repeats or extends the rows:
+3. **Reply with one table per photo** (or per photo set), and nothing after it that repeats or extends the rows:
 
    | Bin | ID | Action | Description | Confidence | Question |
    |---|---|---|---|---|---|
@@ -42,6 +43,11 @@ The local database is the real, authoritative inventory. This repository is publ
    ```
 
 7. **Confirm** with one line, such as `4A3, 4A4 applied and verified; photo filed.`
+8. **Idle check.** If the research queue has items, start a two-minute timer after confirming (`sleep 120` with Bash `run_in_background`). If it fires and no photo or message has arrived since, ask: `OK if I perform research for the items in the queue?` A long pause usually means Dan stepped away or forgot to say he is finished. Skip the timer when the queue is empty.
+
+### Moving Parts Into a Bin Outside the Review
+
+`"verify": true` verifies every bin listed in the plan, so never list a destination bin Dan has not reviewed in this batch just to receive moved parts. Instead, apply the reviewed bins with `"verify": true`, sending the parts out with `"remove": {"<id>": {"move": "<bin>"}}`. Then, if moved or new parts need descriptions there, apply a second plan for the destination with `"verify": false`.
 
 ### Plan Format
 
@@ -78,7 +84,7 @@ If it reports recorded parts, show them to Dan; "empty" then means those records
 ## Dan's Rules
 
 - Be concise. Put every detail of an item in its table row. Ask questions only in the Question column, and only when uncertainty remains after examining the photo.
-- Never ask about quantities (they are not tracked) or whether a bag is empty.
+- Never ask about quantities (they are not tracked) or whether a bag is empty, and never put counts in descriptions.
 - Give no speculative guidance before a photo arrives.
 - Describe the item type, not its packaging state.
 - A marking on the part outranks a stale packaging label.
@@ -89,9 +95,9 @@ If it reports recorded parts, show them to Dan; "empty" then means those records
 
 ## Deferred Research
 
-Reading labels and markings from photos is inline work. External lookups (vendor order histories, datasheets, web searches) are not: queue them so Dan never waits at the shelf.
+Reading labels and markings from photos is inline work. External lookups (vendor order histories, datasheets, web searches) are not: queue them so Dan never waits at the shelf. The exception is a quick lookup Dan asks for at the shelf, such as decoding a short manufacturer code; do that inline.
 
-- Append the bin, what is known, the photo filename, and what to look up to `$WORKING_DIR/Interests/Workshop/PartDB/research-queue.md`. Record the archived path `file_photo.py` prints (the archive renames files to `<date>_<name>`), not the Downloads name. Leave that bin unverified and move on.
+- Append the bin, what is known, the photo filename, and what to look up to `$WORKING_DIR/Interests/Workshop/PartDB/research-queue.md`, creating the file if it is missing. Record the archived path `file_photo.py` prints (the archive renames files to `<date>_<name>`), not the Downloads name. Leave that bin unverified and move on.
 - At the end of the batch, do one research pass through claude-in-chrome using Dan's logged-in browser. Vendors he orders from include Adafruit, Pololu, 18650batterystore, liionwholesale, Digi-Key, Mouser, McMaster-Carr, and Amazon.
 - Present one table of proposed updates with confidence. If research finds several candidates, flag the row for a physical recheck instead of choosing. Approved rows are applied and verified like any other plan; then remove them from the queue.
 
