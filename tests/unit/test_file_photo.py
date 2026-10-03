@@ -184,3 +184,20 @@ def test_rejects_bad_bin_arguments(downloads: Path, root: Path, bins) -> None:
     assert excinfo.value.code == 2
     assert photo.exists()
     assert not root.exists()
+
+
+def test_empty_photo_root_falls_back_to_default_root(
+    downloads: Path, tmp_path: Path, monkeypatch
+) -> None:
+    default_root = tmp_path / "default-photos"
+    cwd = tmp_path / "cwd"
+    cwd.mkdir()
+    monkeypatch.setattr(file_photo, "DEFAULT_ROOT", default_root)
+    monkeypatch.setenv("PARTDB_PHOTO_ROOT", "  ")
+    monkeypatch.chdir(cwd)
+    photo = make_jpeg(downloads / "IMG_7001.JPG")
+
+    assert file_photo.main([str(photo), "--bin", "4A3=1"]) == 0
+
+    assert (default_root / "4A3" / "2026-09-28_IMG_7001.JPG").exists()
+    assert list(cwd.iterdir()) == []

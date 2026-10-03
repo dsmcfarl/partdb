@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["pillow>=11"]
+# dependencies = ["pillow>=12,<13"]
 # ///
 """File a bin-review photo into the PartDB photo archive with manifest rows."""
 
@@ -170,7 +170,8 @@ def main(argv: list[str] | None = None) -> int:
     locations = [target.location.casefold() for target in args.bins]
     if len(set(locations)) != len(locations):
         parser.error("each bin may be given only once")
-    root = Path(os.environ.get("PARTDB_PHOTO_ROOT", DEFAULT_ROOT)).expanduser()
+    configured = os.environ.get("PARTDB_PHOTO_ROOT", "").strip()
+    root = Path(configured or DEFAULT_ROOT).expanduser()
     try:
         destinations = file_photo(
             args.photo.expanduser(), args.bins, args.note, root, args.keep_original

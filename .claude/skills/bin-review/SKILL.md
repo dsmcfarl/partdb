@@ -33,8 +33,8 @@ The local database is the real, authoritative inventory. This repository is publ
 
    One row per record, including `keep` rows, so each bin's full picture is in one place. Actions: `keep`, `update`, `add`, `move in`, `move to <bin>`, `delete`, `create bin`.
 4. **Dan replies** `approve`, approves with an amendment ("otherwise approve"), or answers a question.
-5. **Apply.** Write the approved plan to `<scratchpad>/plan-<n>.json` and run `uv run partdb apply <scratchpad>/plan-<n>.json --yes`. Set `"verify": true` when every bin in the plan is fully approved; when any bin still has an open question or an amendment you need confirmed, leave that bin out of the plan (or apply with `"verify": false` and verify later).
-6. **File the photo** with the part IDs it shows, using IDs from the `apply` output for newly added parts:
+5. **Apply.** Write the approved plan to `<scratchpad>/plan-<n>.json` and run `uv run partdb apply <scratchpad>/plan-<n>.json --yes`. Set `"verify": true` when every bin in the plan is fully approved; when any bin still has an open question or an amendment you need confirmed, leave that bin out of the plan (or apply with `"verify": false` and verify later). Compare every `<`, `-`, `>`, `~`, and `+` line `apply` prints with the approved table and tell Dan immediately if anything differs; a mistyped ID on a move-in row can silently pull an unrelated part out of another bin, which accounting cannot catch.
+6. **File the photo** with the part IDs it shows, using IDs from the `apply` output for newly added parts. File it even when one of its bins was left unverified for an open question or queued research:
 
    ```bash
    uv run --script .claude/skills/bin-review/scripts/file_photo.py <photo> \
@@ -91,7 +91,7 @@ If it reports recorded parts, show them to Dan; "empty" then means those records
 
 Reading labels and markings from photos is inline work. External lookups (vendor order histories, datasheets, web searches) are not: queue them so Dan never waits at the shelf.
 
-- Append the bin, what is known, the photo filename, and what to look up to `$WORKING_DIR/Interests/Workshop/PartDB/research-queue.md`. Leave that bin unverified and move on.
+- Append the bin, what is known, the photo filename, and what to look up to `$WORKING_DIR/Interests/Workshop/PartDB/research-queue.md`. Record the archived path `file_photo.py` prints (the archive renames files to `<date>_<name>`), not the Downloads name. Leave that bin unverified and move on.
 - At the end of the batch, do one research pass through claude-in-chrome using Dan's logged-in browser. Vendors he orders from include Adafruit, Pololu, 18650batterystore, liionwholesale, Digi-Key, Mouser, McMaster-Carr, and Amazon.
 - Present one table of proposed updates with confidence. If research finds several candidates, flag the row for a physical recheck instead of choosing. Approved rows are applied and verified like any other plan; then remove them from the queue.
 
