@@ -143,6 +143,10 @@ A plan lists each bin's complete intended contents:
 
 A `remove` move may add `"description"` to rename the part as it moves, without listing or verifying the destination bin. Every part recorded in a listed bin must be listed, removed, or listed in another bin of the same plan; otherwise the whole plan is rejected and nothing changes. `"verify": true` marks the listed bins verified in the same transaction, and `"create": true` on a bin creates it if it is missing. Search results label the nearest empty bins before and after each match, for example `nearest empty: 5A2 ↑ 5A4 ↓`.
 
+## Putting Parts Away
+
+To find a home for a part on the bench, ask an agent in this repository "where do I put this?" with a photo or description, or say "I need to put away some parts". It follows the `put-away` skill in `.claude/skills/put-away/`: it recommends bins in a short table and records the change once you confirm.
+
 ## Private Data Audit
 
 The audit is read-only and reports empty bins, suspicious descriptions, duplicates, naming inconsistencies, missing embeddings, invalid references, and verification totals:

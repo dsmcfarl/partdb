@@ -68,3 +68,27 @@ def test_bin_review_skill_covers_the_loop() -> None:
         "Never ask about quantities",
     ):
         assert required in skill
+
+
+def test_put_away_skill_covers_the_flow() -> None:
+    skill = (REPO / ".claude/skills/put-away/SKILL.md").read_text(encoding="utf-8")
+    assert skill.startswith("---\nname: put-away\ndescription: ")
+    for required in (
+        "partdb search --full-text",
+        "partdb inventory",
+        "nearest empty",
+        "| # | Bin | Why | Record change |",
+        "partdb add",
+        "partdb update",
+        "partdb embeddings refresh",
+        "file_photo.py",
+        "watch_downloads.sh",
+        "Never ask about quantities",
+        "Never verify",
+    ):
+        assert required in skill
+
+
+def test_readme_points_to_put_away_skill() -> None:
+    readme = (REPO / "README.md").read_text(encoding="utf-8")
+    assert ".claude/skills/put-away/" in readme
