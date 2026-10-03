@@ -6,6 +6,7 @@ from pathlib import Path
 import click
 import psycopg
 
+from partdb.apply import parse_plan, render_diff
 from partdb.audit import render_markdown, run_audit, write_markdown_atomic
 from partdb.database import connect
 from partdb.embeddings import OpenAIEmbeddingProvider
@@ -138,6 +139,29 @@ def show_inventory(start: str, end: str) -> None:
     """Show every location and part in an inclusive range."""
     with inventory_service() as service:
         display_inventory(service.inventory_range(start, end))
+
+
+@cli.command("apply")
+@click.argument("plan_file", type=click.File("r", encoding="utf-8"))
+@click.option("--dry-run", is_flag=True, help="Show the changes without applying")
+@click.option("--yes", is_flag=True, help="Skip confirmation")
+def apply_plan(plan_file, dry_run: bool, yes: bool) -> None:
+    """Apply a reviewed bin plan (JSON file, or - for stdin) atomically."""
+    text = plan_file.read()
+    with inventory_service() as service:
+        diff = service.plan_changes(parse_plan(text))
+        if dry_run:
+            for line in render_diff(diff):
+                click.echo(line)
+            click.echo("dry run: no changes made")
+            return
+        if not yes:
+            for line in render_diff(diff):
+                click.echo(line)
+            click.confirm("Apply these changes?", abort=True)
+        applied = service.apply_changes(diff)
+    for line in render_diff(applied):
+        click.echo(line)
 
 
 @cli.group()
