@@ -139,3 +139,60 @@ def test_clear_and_unverified_status(
     assert result.output.index("5A2") < result.output.index("5A3")
     assert result.output.index("5A3") < result.output.index("5A8")
     assert "5A1" not in result.output.splitlines()[1:]
+
+
+def test_expect_empty_marks_empty_bins(
+    runner: CliRunner, conn: psycopg.Connection
+) -> None:
+    result = runner.invoke(
+        cli, ["verify", "mark", "5A2", "5A8", "--expect-empty", "--yes"]
+    )
+    assert result.exit_code == 0, result.output
+    assert verified_count(conn) == 2
+
+
+def test_expect_empty_rejects_occupied_bins(
+    runner: CliRunner, conn: psycopg.Connection
+) -> None:
+    result = runner.invoke(
+        cli,
+        [
+            "verify",
+            "mark",
+            "--from",
+            "5A1",
+            "--through",
+            "5A3",
+            "--expect-empty",
+            "--yes",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "locations are not empty:" in result.output
+    assert "  5A1: washer (id=" in result.output
+    assert "  5A3: resistor (id=" in result.output
+    assert verified_count(conn) == 0
+
+
+def test_status_defaults_to_summary(runner: CliRunner) -> None:
+    result = runner.invoke(cli, ["verify", "status"])
+    assert result.exit_code == 0
+    assert result.output == "verified 0/4; unverified 4\n"
+
+
+def test_status_all_lists_every_location(runner: CliRunner) -> None:
+    assert runner.invoke(cli, ["verify", "mark", "5A1", "--yes"]).exit_code == 0
+
+    result = runner.invoke(cli, ["verify", "status", "--all"])
+
+    lines = result.output.splitlines()
+    assert result.exit_code == 0
+    assert lines[0] == "verified 1/4; unverified 3"
+    assert lines[1].startswith("5A1: 20")
+    assert lines[2:] == ["5A2: unverified", "5A3: unverified", "5A8: unverified"]
+
+
+def test_status_rejects_conflicting_flags(runner: CliRunner) -> None:
+    result = runner.invoke(cli, ["verify", "status", "--all", "--unverified"])
+    assert result.exit_code != 0
+    assert "--unverified and --all cannot be combined" in result.output
