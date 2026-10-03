@@ -20,7 +20,7 @@ The local database is the real, authoritative inventory. This repository is publ
   bash .claude/skills/bin-review/scripts/watch_downloads.sh ~/Downloads <scratchpad>/seen-photos.txt
   ```
 
-  Each `NEW PHOTO: <path>` line is an item. Dan may send photos, descriptions, or a mix. Restart an expired monitor with the same state file. When he says `done`, stop the monitor.
+  Each `NEW PHOTO: <path>` line is an item. Dan may send photos, descriptions, or a mix. Restart an expired monitor with the same state file. When he says `done`, stop the monitor and, if any records changed, run `just backup` and give the path in one line.
 
 ## For Each Item
 
@@ -72,3 +72,4 @@ When several photos or items arrive together, reply with one table and an Item c
 - Never change a record before Dan says `ok`.
 - Never verify bins unless Dan explicitly asks ("verify 2B4"); then run `uv run partdb verify mark <bin> --yes`. Putting a part away records where it went; it does not confirm the rest of the bin, and adding a part leaves a bin's verified status unchanged.
 - If Dan says an item won't fit in the recommended bin, recommend the next option.
+- To see or verify a bin ("show everything in 2B4"), follow the bin-review skill's ad-hoc bin check.

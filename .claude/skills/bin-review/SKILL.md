@@ -1,6 +1,6 @@
 ---
 name: bin-review
-description: Use when Dan is physically reviewing PartDB bins at the shelf: he sends photos or describes bin contents, and you propose corrections, apply approved changes, verify bins, and file the photos.
+description: Use when Dan is physically reviewing PartDB bins at the shelf: he sends photos or describes bin contents, and you propose corrections, apply approved changes, verify bins, and file the photos. Also use when he asks to see one bin's contents to check it ("show everything in 2B4", "what's in that bin?").
 ---
 
 # Attended Bin Review
@@ -80,6 +80,24 @@ uv run partdb verify mark --from 4B1 --through 4B8 --expect-empty --yes
 ```
 
 If it reports recorded parts, show them to Dan; "empty" then means those records need deleting or moving, which needs his approval. If a bin he names is missing from the database, propose creating it.
+
+## Ad-hoc Bin Check
+
+Dan often checks a single bin when it is convenient, such as while putting parts away: "show everything in 2B4", "what's in 2B4?", or "show me what's in that bin" when the bin is clear from context (for example, the bin just recommended). If it isn't clear, ask which bin in one line. There is no batch setup: no backup and no watcher.
+
+Run `uv run partdb inventory --from <bin> --through <bin>` and reply with one heading line and one table, nothing after:
+
+**2B4** · unverified (or `verified 2026-10-03`)
+
+| ID | Description |
+|---|---|
+| 98 | USB-C charging cable, 1 m |
+
+Show `(empty)` for an empty bin. Then:
+
+- **"verified"**: run `uv run partdb verify mark <bin> --yes` and confirm in one line.
+- **Corrections** ("98 is actually USB-A", "add M3 nuts", "the fuse isn't here"): write an `apply` plan for that bin with its complete contents and apply it with `"verify": false`, unless Dan also verifies ("fix 98, otherwise verified"), in which case use `"verify": true`. Confirm in one line with the changes. If a correction is ambiguous, ask in one table row before applying.
+- **A photo**: handle it like any photo in The Loop.
 
 ## Dan's Rules
 

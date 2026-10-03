@@ -92,3 +92,22 @@ def test_put_away_skill_covers_the_flow() -> None:
 def test_readme_points_to_put_away_skill() -> None:
     readme = (REPO / "README.md").read_text(encoding="utf-8")
     assert ".claude/skills/put-away/" in readme
+
+
+def test_bin_review_skill_has_ad_hoc_bin_check() -> None:
+    skill = (REPO / ".claude/skills/bin-review/SKILL.md").read_text(encoding="utf-8")
+    frontmatter = skill.split("---")[1]
+    assert "what's in" in frontmatter
+    for required in (
+        "## Ad-hoc Bin Check",
+        "| ID | Description |",
+        "uv run partdb verify mark <bin> --yes",
+        "otherwise verified",
+    ):
+        assert required in skill
+
+
+def test_put_away_skill_points_to_ad_hoc_check_and_backs_up() -> None:
+    skill = (REPO / ".claude/skills/put-away/SKILL.md").read_text(encoding="utf-8")
+    assert "ad-hoc bin check" in skill
+    assert "just backup" in skill
