@@ -1,10 +1,12 @@
 import csv
 from collections.abc import Iterable, Sequence
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
 import psycopg
 
+from partdb.apply import BinDiff, Change, PartEntry, Plan, PlanDiff, PlanError
 from partdb.embeddings import EmbeddingProvider
 from partdb.errors import (
     DuplicateLocation,
@@ -176,6 +178,123 @@ class InventoryService:
             locations = [item for item in locations if item.verified_at is None]
         return sorted(locations, key=lambda item: natural_location_key(item.name))
 
+    def plan_changes(self, plan: Plan) -> PlanDiff:
+        """Validate a reviewed plan against current data and describe its changes."""
+        problems: list[str] = []
+        by_casefold: dict[str, list[str]] = {}
+        for location in self.list_locations():
+            by_casefold.setdefault(location.name.casefold(), []).append(location.name)
+
+        def existing(name: str) -> str | None:
+            matches = by_casefold.get(name.casefold(), [])
+            if name in matches:
+                return name
+            if len(matches) > 1:
+                raise PlanError([f"location {name} is ambiguous"])
+            return matches[0] if matches else None
+
+        canonical: dict[str, str] = {}
+        created: dict[str, str] = {}
+        for bin_plan in plan.bins:
+            name = existing(bin_plan.name)
+            if name is None:
+                if not bin_plan.create:
+                    problems.append(
+                        f"{bin_plan.name}: location not found (set create to add it)"
+                    )
+                    continue
+                name = bin_plan.name
+                created[name.casefold()] = name
+            canonical[bin_plan.name] = name
+
+        listed_anywhere = {
+            entry.id
+            for bin_plan in plan.bins
+            for entry in bin_plan.parts
+            if entry.id is not None
+        }
+        referenced = listed_anywhere | {
+            removal.part_id for bin_plan in plan.bins for removal in bin_plan.removals
+        }
+        current = self._parts_by_id(referenced)
+        problems.extend(
+            f"part {part_id} not found"
+            for part_id in sorted(referenced - current.keys())
+        )
+
+        bins: list[BinDiff] = []
+        for bin_plan in plan.bins:
+            name = canonical.get(bin_plan.name)
+            if name is None:
+                continue
+            changes = [
+                change
+                for entry in bin_plan.parts
+                if (change := self._entry_change(name, entry, current)) is not None
+            ]
+            removed: set[int] = set()
+            for removal in bin_plan.removals:
+                part = current.get(removal.part_id)
+                if part is None:
+                    continue
+                if part.location != name:
+                    problems.append(f"{name}: part {part.id} is not in {name}")
+                    continue
+                removed.add(part.id)
+                if removal.move_to is None:
+                    changes.append(Change("delete", part.id, part.description))
+                    continue
+                target = existing(removal.move_to) or created.get(
+                    removal.move_to.casefold()
+                )
+                if target is None:
+                    problems.append(f"{name}: move target {removal.move_to} not found")
+                    continue
+                changes.append(
+                    Change("move_out", part.id, part.description, other_location=target)
+                )
+            is_created = name.casefold() in created
+            if not is_created:
+                for part in self.list_parts(name):
+                    if part.id not in removed and part.id not in listed_anywhere:
+                        problems.append(
+                            f'{name}: part {part.id} "{part.description}" '
+                            "is not accounted for"
+                        )
+            bins.append(BinDiff(name, is_created, tuple(changes)))
+
+        if problems:
+            raise PlanError(problems)
+        return PlanDiff(bins=tuple(bins), verify=plan.verify)
+
+    def apply_changes(self, diff: PlanDiff) -> PlanDiff:
+        """Apply a computed diff in the caller's transaction; return it with new IDs."""
+        for bin_diff in diff.bins:
+            if bin_diff.created:
+                self.add_location(bin_diff.name)
+        applied: list[BinDiff] = []
+        for bin_diff in diff.bins:
+            changes: list[Change] = []
+            for change in bin_diff.changes:
+                if change.kind == "add":
+                    part = self.add_part(bin_diff.name, change.description)
+                    change = replace(change, part_id=part.id)
+                elif change.kind == "update":
+                    self.update_part(change.part_id, change.description)
+                elif change.kind == "move_in":
+                    self.move_part(change.part_id, bin_diff.name)
+                    if change.old_description is not None:
+                        self.update_part(change.part_id, change.description)
+                elif change.kind == "move_out":
+                    self.move_part(change.part_id, change.other_location)
+                elif change.kind == "delete":
+                    self.delete_part(change.part_id)
+                changes.append(change)
+            applied.append(replace(bin_diff, changes=tuple(changes)))
+        if diff.verify:
+            self.mark_verified([bin_diff.name for bin_diff in diff.bins])
+        return replace(diff, bins=tuple(applied))
+
     def search_full_text(self, description: str) -> list[SearchResult]:
         description = self._nonblank(description, "description")
         rows = self.conn.execute(
@@ -314,6 +433,45 @@ class InventoryService:
                 )
             )
         return results
+
+    def _parts_by_id(self, ids: set[int]) -> dict[int, Part]:
+        if not ids:
+            return {}
+        rows = self.conn.execute(
+            """SELECT id, location, description, embedding IS NOT NULL
+            FROM parts WHERE id = ANY(%s)""",
+            (sorted(ids),),
+        )
+        return {row[0]: self._part(row) for row in rows}
+
+    @staticmethod
+    def _entry_change(
+        name: str, entry: PartEntry, current: dict[int, Part]
+    ) -> Change | None:
+        if entry.id is None:
+            return Change("add", None, entry.description or "")
+        part = current.get(entry.id)
+        if part is None:
+            return None
+        renamed = entry.description is not None and (
+            entry.description != part.description
+        )
+        if part.location == name:
+            if renamed:
+                return Change(
+                    "update",
+                    part.id,
+                    entry.description or "",
+                    old_description=part.description,
+                )
+            return Change("keep", part.id, part.description)
+        return Change(
+            "move_in",
+            part.id,
+            (entry.description or "") if renamed else part.description,
+            old_description=part.description if renamed else None,
+            other_location=part.location,
+        )
 
     def _canonical_location_names(self, names: Sequence[str]) -> list[str]:
         if not names:
