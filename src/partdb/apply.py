@@ -11,6 +11,7 @@ ChangeKind = Literal["keep", "update", "add", "move_in", "move_out", "delete"]
 PLAN_KEYS = {"bins", "verify"}
 BIN_KEYS = {"parts", "remove", "create"}
 PART_KEYS = {"id", "description"}
+MOVE_KEYS = {"move", "description"}
 
 
 class PlanError(PartDBError):
@@ -33,6 +34,7 @@ class PartEntry:
 class Removal:
     part_id: int
     move_to: str | None
+    description: str | None = None
 
 
 @dataclass(frozen=True)
@@ -207,17 +209,26 @@ def _parse_removal(
         return Removal(part_id, None)
     if (
         isinstance(action, dict)
-        and set(action) == {"move"}
-        and isinstance(action["move"], str)
+        and isinstance(action.get("move"), str)
         and action["move"].strip()
     ):
+        unknown = [key for key in action if key not in MOVE_KEYS]
+        if unknown:
+            problems.extend(f"{label}: unknown key {key!r}" for key in unknown)
+            return None
         target = action["move"].strip()
         if target.casefold() == name.casefold():
             problems.append(
                 f"{label}: cannot move a part to the bin it is removed from"
             )
             return None
-        return Removal(part_id, target)
+        description = action.get("description")
+        if description is not None:
+            if not isinstance(description, str) or not description.strip():
+                problems.append(f"{label}: description cannot be blank")
+                return None
+            description = description.strip()
+        return Removal(part_id, target, description)
     problems.append(f'{label}: must be "delete" or {{"move": "<location>"}}')
     return None
 
@@ -265,6 +276,12 @@ def _check_part_claims(bins: list[BinPlan], problems: list[str]) -> None:
                         f"part {part_id} is moved to {removal.move_to} by "
                         f"{bin_plan.name} but listed in {destination}"
                     )
+                elif removal.description is not None:
+                    problems.append(
+                        f"part {part_id} is moved to {destination} by "
+                        f"{bin_plan.name} with a description; "
+                        f"set it in {destination}'s listing instead"
+                    )
             elif removal.move_to.casefold() in plan_names:
                 target = plan_names[removal.move_to.casefold()]
                 problems.append(
@@ -275,6 +292,13 @@ def _check_part_claims(bins: list[BinPlan], problems: list[str]) -> None:
 
 def _render_change(change: Change) -> str:
     ident = "new" if change.part_id is None else str(change.part_id)
+    if change.kind == "move_out":
+        if change.old_description is None:
+            return f"> {ident} {_quote(change.description)} -> {change.other_location}"
+        return (
+            f"> {ident} {_quote(change.old_description)} -> "
+            f"{change.other_location} as {_quote(change.description)}"
+        )
     text = _quote(change.description)
     if change.old_description is not None:
         text = f"{_quote(change.old_description)} -> {text}"
@@ -286,9 +310,7 @@ def _render_change(change: Change) -> str:
         return f"+ {ident} {text}"
     if change.kind == "delete":
         return f"- {ident} {text}"
-    if change.kind == "move_in":
-        return f"< {ident} {text} <- {change.other_location}"
-    return f"> {ident} {text} -> {change.other_location}"
+    return f"< {ident} {text} <- {change.other_location}"
 
 
 def _quote(text: str) -> str:

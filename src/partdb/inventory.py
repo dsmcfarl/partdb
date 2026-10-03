@@ -250,8 +250,15 @@ class InventoryService:
                 if target is None:
                     problems.append(f"{name}: move target {removal.move_to} not found")
                     continue
+                renamed = removal.description not in (None, part.description)
                 changes.append(
-                    Change("move_out", part.id, part.description, other_location=target)
+                    Change(
+                        "move_out",
+                        part.id,
+                        removal.description if renamed else part.description,
+                        old_description=part.description if renamed else None,
+                        other_location=target,
+                    )
                 )
             is_created = name.casefold() in created
             if not is_created:
@@ -287,6 +294,8 @@ class InventoryService:
                         self.update_part(change.part_id, change.description)
                 elif change.kind == "move_out":
                     self.move_part(change.part_id, change.other_location)
+                    if change.old_description is not None:
+                        self.update_part(change.part_id, change.description)
                 elif change.kind == "delete":
                     self.delete_part(change.part_id)
                 changes.append(change)
