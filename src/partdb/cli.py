@@ -6,6 +6,7 @@ from pathlib import Path
 import click
 import psycopg
 
+from partdb.apply import parse_plan, render_diff
 from partdb.audit import render_markdown, run_audit, write_markdown_atomic
 from partdb.database import connect
 from partdb.embeddings import OpenAIEmbeddingProvider
@@ -140,6 +141,29 @@ def show_inventory(start: str, end: str) -> None:
         display_inventory(service.inventory_range(start, end))
 
 
+@cli.command("apply")
+@click.argument("plan_file", type=click.File("r", encoding="utf-8"))
+@click.option("--dry-run", is_flag=True, help="Show the changes without applying")
+@click.option("--yes", is_flag=True, help="Skip confirmation")
+def apply_plan(plan_file, dry_run: bool, yes: bool) -> None:
+    """Apply a reviewed bin plan (JSON file, or - for stdin) atomically."""
+    text = plan_file.read()
+    with inventory_service() as service:
+        diff = service.plan_changes(parse_plan(text))
+        if dry_run:
+            for line in render_diff(diff):
+                click.echo(line)
+            click.echo("dry run: no changes made")
+            return
+        if not yes:
+            for line in render_diff(diff):
+                click.echo(line)
+            click.confirm("Apply these changes?", abort=True)
+        applied = service.apply_changes(diff)
+    for line in render_diff(applied):
+        click.echo(line)
+
+
 @cli.group()
 def verify() -> None:
     """Track physical inventory verification."""
@@ -149,9 +173,16 @@ def verify() -> None:
 @click.argument("names", nargs=-1)
 @click.option("--from", "start", help="First location")
 @click.option("--through", "end", help="Last location")
+@click.option(
+    "--expect-empty", is_flag=True, help="Fail if any location has recorded parts"
+)
 @click.option("--yes", is_flag=True, help="Skip confirmation")
 def mark_verified(
-    names: tuple[str, ...], start: str | None, end: str | None, yes: bool
+    names: tuple[str, ...],
+    start: str | None,
+    end: str | None,
+    expect_empty: bool,
+    yes: bool,
 ) -> None:
     """Mark explicit locations or an inclusive range verified."""
     if names and (start or end):
@@ -165,6 +196,16 @@ def mark_verified(
             items = service.inventory_range(start, end)
         else:
             items = service.inventory_locations(names)
+        if expect_empty:
+            occupied = [
+                f"  {item.name}: {part.description} (id={part.id})"
+                for item in items
+                for part in item.parts
+            ]
+            if occupied:
+                raise click.ClickException(
+                    "locations are not empty:\n" + "\n".join(occupied)
+                )
         display_inventory(items)
         if not yes:
             click.confirm("Proceed?", abort=True)
@@ -186,8 +227,11 @@ def clear_verified(names: tuple[str, ...], yes: bool) -> None:
 
 @verify.command("status")
 @click.option("--unverified", is_flag=True, help="List only unverified locations")
-def verification_status(unverified: bool) -> None:
+@click.option("--all", "show_all", is_flag=True, help="List every location")
+def verification_status(unverified: bool, show_all: bool) -> None:
     """Show physical verification progress."""
+    if unverified and show_all:
+        raise click.ClickException("--unverified and --all cannot be combined")
     with inventory_service() as service:
         all_locations = service.verification_status()
         verified = sum(item.verified_at is not None for item in all_locations)
@@ -195,10 +239,16 @@ def verification_status(unverified: bool) -> None:
             f"verified {verified}/{len(all_locations)}; "
             f"unverified {len(all_locations) - verified}"
         )
+        if not (unverified or show_all):
+            return
         items = service.verification_status(unverified_only=unverified)
         for item in items:
             status = item.verified_at.isoformat() if item.verified_at else "unverified"
             click.echo(f"{item.name}: {status}")
+
+
+def nearest_empty_label(previous: str | None, following: str | None) -> str:
+    return f"nearest empty: {previous or 'none'} ↑ {following or 'none'} ↓"
 
 
 @cli.command()
@@ -215,7 +265,9 @@ def search(full_text: bool, description: str) -> None:
             details = []
             if result.distance is not None:
                 details.append(f"distance={result.distance:.3f}")
-            details.append(f"empty={result.previous_empty},{result.next_empty}")
+            details.append(
+                nearest_empty_label(result.previous_empty, result.next_empty)
+            )
             click.echo(
                 f"{result.location}: {result.description} "
                 f"(id={result.id}, {', '.join(details)})"

@@ -38,3 +38,33 @@ def test_readme_documents_operating_configuration_and_workflows() -> None:
         "partdb_partdb-data",
     ):
         assert required in readme
+
+
+def test_readme_documents_reviewed_batch_workflow() -> None:
+    readme = (REPO / "README.md").read_text(encoding="utf-8")
+    for required in (
+        "## Applying a Reviewed Batch",
+        "uv run partdb apply plan.json --dry-run",
+        "uv run partdb apply plan.json --yes",
+        "--expect-empty",
+        "uv run partdb verify status --all",
+        ".claude/skills/bin-review/",
+    ):
+        assert required in readme
+
+
+def test_bin_review_skill_covers_the_loop() -> None:
+    skill = (REPO / ".claude/skills/bin-review/SKILL.md").read_text(encoding="utf-8")
+    assert skill.startswith("---\nname: bin-review\ndescription: ")
+    for required in (
+        "just backup",
+        "watch_downloads.sh",
+        "partdb apply",
+        "--expect-empty",
+        "file_photo.py",
+        "research-queue.md",
+        "partdb embeddings refresh",
+        "bin-review-pilot-notes.md",
+        "Never ask about quantities",
+    ):
+        assert required in skill

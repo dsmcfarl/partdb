@@ -171,12 +171,12 @@ def test_search_cli_shows_which_side_each_empty_location_is_on(
 
     assert result.exit_code == 0, result.output
     assert "5A3: ceramic capacitor" in result.output
-    assert "empty=5A2,5A4)" in result.output
+    assert "nearest empty: 5A2 ↑ 5A4 ↓)" in result.output
 
     result = CliRunner().invoke(cli, ["search", "--full-text", "10k"])
 
     assert result.exit_code == 0, result.output
-    assert "empty=None,5A2)" in result.output
+    assert "nearest empty: none ↑ 5A2 ↓)" in result.output
 
 
 def test_semantic_cli_without_key_has_clear_error(

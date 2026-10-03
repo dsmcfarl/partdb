@@ -102,15 +102,46 @@ uv run partdb verify mark 5A1 5A2
 uv run partdb verify mark --from 5A1 --through 5A8
 ```
 
+Mark a range only if nothing is recorded there, for bins confirmed empty:
+
+```bash
+uv run partdb verify mark --from 5A1 --through 5A8 --expect-empty
+```
+
 Undo an accidental mark and inspect progress:
 
 ```bash
 uv run partdb verify clear 5A2
-uv run partdb verify status
-uv run partdb verify status --unverified
+uv run partdb verify status              # summary line
+uv run partdb verify status --unverified # remaining bins
+uv run partdb verify status --all        # every bin with its status
 ```
 
 Verification records only the latest confirmation timestamp. Correctly recorded adds, moves, updates, and deletes do not clear it.
+
+## Applying a Reviewed Batch
+
+Attended bin reviews are run by an agent following the `bin-review` skill in `.claude/skills/bin-review/`. The agent applies each table Dan approves with one atomic command:
+
+```bash
+uv run partdb apply plan.json --dry-run   # show the diff only
+uv run partdb apply plan.json --yes       # apply in one transaction
+uv run partdb apply - --yes < plan.json   # read the plan from stdin
+```
+
+A plan lists each bin's complete intended contents:
+
+```json
+{"verify": true,
+ "bins": {
+   "5A1": {"parts": [
+             {"id": 12, "description": "M3 x 8 mm socket head screws"},
+             {"id": 13},
+             {"description": "M3 nylon standoffs"}],
+           "remove": {"14": "delete", "15": {"move": "5A2"}}}}}
+```
+
+Every part recorded in a listed bin must be listed, removed, or listed in another bin of the same plan; otherwise the whole plan is rejected and nothing changes. `"verify": true` marks the listed bins verified in the same transaction, and `"create": true` on a bin creates it if it is missing. Search results label the nearest empty bins before and after each match, for example `nearest empty: 5A2 ↑ 5A4 ↓`.
 
 ## Private Data Audit
 
