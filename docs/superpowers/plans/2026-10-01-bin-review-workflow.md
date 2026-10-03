@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-01-bin-review-workflow-design.md`
 
+**Status:** Complete.
+
 ## Global Constraints
 
 - Execute in an isolated Git worktree under `.worktrees/` (already gitignored) on branch `feature/bin-review-workflow`, created with `superpowers:using-git-worktrees`.
@@ -61,7 +63,7 @@
   - `parse_plan(text: str) -> Plan`: raises `PlanError`.
   - `render_diff(diff: PlanDiff) -> list[str]`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/unit/test_apply_plan.py`:
 
@@ -311,12 +313,12 @@ def test_renders_unicode_descriptions_verbatim() -> None:
     assert render_diff(diff) == ["4A3", '  = 1 "10µF — X7R"']
 ```
 
-- [ ] **Step 2: Run the tests and verify failure**
+- [x] **Step 2: Run the tests and verify failure**
 
 Run: `uv run pytest tests/unit/test_apply_plan.py -v`
 Expected: collection error, `ModuleNotFoundError: No module named 'partdb.apply'`.
 
-- [ ] **Step 3: Implement `src/partdb/apply.py`**
+- [x] **Step 3: Implement `src/partdb/apply.py`**
 
 ```python
 """Reviewed bin plans: parse plan JSON, describe changes, and render diffs."""
@@ -614,12 +616,12 @@ def _quote(text: str) -> str:
     return json.dumps(text, ensure_ascii=False)
 ```
 
-- [ ] **Step 4: Run the tests and verify they pass**
+- [x] **Step 4: Run the tests and verify they pass**
 
 Run: `uv run pytest tests/unit/test_apply_plan.py -v`
 Expected: all tests PASS.
 
-- [ ] **Step 5: Format, lint, and commit**
+- [x] **Step 5: Format, lint, and commit**
 
 ```bash
 uv run ruff format . && uv run ruff check .
@@ -643,7 +645,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `InventoryService.plan_changes(plan: Plan) -> PlanDiff`: raises `PlanError` listing every data problem; resolved bin names are canonical.
   - `InventoryService.apply_changes(diff: PlanDiff) -> PlanDiff`: executes within the caller's transaction (never commits); returned diff has `part_id` set on `add` changes.
 
-- [ ] **Step 1: Write the failing integration tests**
+- [x] **Step 1: Write the failing integration tests**
 
 Create `tests/integration/test_apply_service.py`:
 
@@ -958,12 +960,12 @@ def test_apply_does_not_commit_so_failures_roll_back(
     assert verified(service) == set()
 ```
 
-- [ ] **Step 2: Run the tests and verify failure**
+- [x] **Step 2: Run the tests and verify failure**
 
 Run: `docker compose up -d --wait && uv run pytest tests/integration/test_apply_service.py -v`
 Expected: FAIL with `AttributeError: 'InventoryService' object has no attribute 'plan_changes'`.
 
-- [ ] **Step 3: Add imports to `src/partdb/inventory.py`**
+- [x] **Step 3: Add imports to `src/partdb/inventory.py`**
 
 Add `from dataclasses import replace` with the standard-library imports, and after `from partdb.embeddings import EmbeddingProvider` add:
 
@@ -971,7 +973,7 @@ Add `from dataclasses import replace` with the standard-library imports, and aft
 from partdb.apply import BinDiff, Change, PartEntry, Plan, PlanDiff, PlanError
 ```
 
-- [ ] **Step 4: Add the public methods after `verification_status`**
+- [x] **Step 4: Add the public methods after `verification_status`**
 
 ```python
     def plan_changes(self, plan: Plan) -> PlanDiff:
@@ -1097,7 +1099,7 @@ from partdb.apply import BinDiff, Change, PartEntry, Plan, PlanDiff, PlanError
         return replace(diff, bins=tuple(applied))
 ```
 
-- [ ] **Step 5: Add the private helpers before `_canonical_location_names`**
+- [x] **Step 5: Add the private helpers before `_canonical_location_names`**
 
 ```python
     def _parts_by_id(self, ids: set[int]) -> dict[int, Part]:
@@ -1140,12 +1142,12 @@ from partdb.apply import BinDiff, Change, PartEntry, Plan, PlanDiff, PlanError
         )
 ```
 
-- [ ] **Step 6: Run the tests and verify they pass**
+- [x] **Step 6: Run the tests and verify they pass**
 
 Run: `uv run pytest tests/integration/test_apply_service.py tests/unit/test_apply_plan.py -v`
 Expected: all tests PASS.
 
-- [ ] **Step 7: Format, lint, run the full suite, and commit**
+- [x] **Step 7: Format, lint, run the full suite, and commit**
 
 ```bash
 uv run ruff format . && uv run ruff check . && uv run pytest
@@ -1167,7 +1169,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Consumes: Task 1 `parse_plan`, `render_diff`; Task 2 `InventoryService.plan_changes`, `apply_changes`; existing `inventory_service()` context manager, which converts `PartDBError` to `click.ClickException` and commits on success or rolls back on any exception.
 - Produces: CLI `partdb apply PLAN [--dry-run] [--yes]`, where `PLAN` is a file path or `-` for stdin. Prints the applied diff (with real IDs) after commit. Prompts `Apply these changes?` unless `--yes`. Dry run prints the diff then `dry run: no changes made`.
 
-- [ ] **Step 1: Write the failing CLI tests**
+- [x] **Step 1: Write the failing CLI tests**
 
 Create `tests/integration/test_cli_apply.py`:
 
@@ -1327,12 +1329,12 @@ def test_database_failure_rolls_back_whole_plan(
     assert verified_count(conn) == 0
 ```
 
-- [ ] **Step 2: Run the tests and verify failure**
+- [x] **Step 2: Run the tests and verify failure**
 
 Run: `uv run pytest tests/integration/test_cli_apply.py -v`
 Expected: FAIL; output contains `No such command 'apply'`.
 
-- [ ] **Step 3: Add the command to `src/partdb/cli.py`**
+- [x] **Step 3: Add the command to `src/partdb/cli.py`**
 
 Add the import after `from partdb.audit import ...`:
 
@@ -1368,12 +1370,12 @@ def apply_plan(plan_file, dry_run: bool, yes: bool) -> None:
 
 The applied diff prints after the `with` block exits, so it appears only after the transaction commits.
 
-- [ ] **Step 4: Run the tests and verify they pass**
+- [x] **Step 4: Run the tests and verify they pass**
 
 Run: `uv run pytest tests/integration/test_cli_apply.py -v`
 Expected: all tests PASS.
 
-- [ ] **Step 5: Format, lint, run the full suite, and commit**
+- [x] **Step 5: Format, lint, run the full suite, and commit**
 
 ```bash
 uv run ruff format . && uv run ruff check . && uv run pytest
@@ -1399,7 +1401,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `partdb verify mark ... --expect-empty`: fails with `locations are not empty:` followed by `  <location>: <description> (id=<id>)` lines, marking nothing.
   - `partdb verify status`: summary line only; `--unverified` lists unverified; `--all` lists every location; both flags together fail.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/unit/test_cli_format.py`:
 
@@ -1497,12 +1499,12 @@ with:
     assert "nearest empty: none ↑ 5A2 ↓)" in result.output
 ```
 
-- [ ] **Step 2: Run the tests and verify failure**
+- [x] **Step 2: Run the tests and verify failure**
 
 Run: `uv run pytest tests/unit/test_cli_format.py tests/integration/test_cli_verification.py tests/integration/test_search_and_csv.py -v`
 Expected: FAIL: `ImportError: cannot import name 'nearest_empty_label'`; with that file excluded, the new verification tests and the search label test fail.
 
-- [ ] **Step 3: Implement `--expect-empty`**
+- [x] **Step 3: Implement `--expect-empty`**
 
 Replace `mark_verified` in `src/partdb/cli.py` with:
 
@@ -1551,7 +1553,7 @@ def mark_verified(
     click.echo(f"marked {count} locations verified")
 ```
 
-- [ ] **Step 4: Implement the status summary default**
+- [x] **Step 4: Implement the status summary default**
 
 Replace `verification_status` in `src/partdb/cli.py` with:
 
@@ -1578,7 +1580,7 @@ def verification_status(unverified: bool, show_all: bool) -> None:
             click.echo(f"{item.name}: {status}")
 ```
 
-- [ ] **Step 5: Implement the search label**
+- [x] **Step 5: Implement the search label**
 
 Add above the `search` command:
 
@@ -1601,12 +1603,12 @@ with:
             )
 ```
 
-- [ ] **Step 6: Run the tests and verify they pass**
+- [x] **Step 6: Run the tests and verify they pass**
 
 Run: `uv run pytest tests/unit/test_cli_format.py tests/integration/test_cli_verification.py tests/integration/test_search_and_csv.py -v`
 Expected: all tests PASS.
 
-- [ ] **Step 7: Format, lint, run the full suite, and commit**
+- [x] **Step 7: Format, lint, run the full suite, and commit**
 
 ```bash
 uv run ruff format . && uv run ruff check . && uv run pytest
@@ -1634,12 +1636,12 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - Python API used by tests: `main(argv: list[str] | None) -> int`, `file_photo(source: Path, bins: list[BinTarget], note: str, root: Path, keep_original: bool) -> list[Path]`, `BinTarget(location: str, part_ids: tuple[int, ...])`, `FilingError`.
   - `bash .claude/skills/bin-review/scripts/watch_downloads.sh [DIR] [STATE_FILE]`: prints `NEW PHOTO: <path>` once per new settled image; reusing `STATE_FILE` across restarts reports photos that arrived while stopped and never repeats one.
 
-- [ ] **Step 1: Add Pillow to the dev group**
+- [x] **Step 1: Add Pillow to the dev group**
 
 Run: `uv add --dev "pillow>=12,<13"`
 Expected: `pyproject.toml` dev group gains `"pillow>=12,<13"` and `uv.lock` updates.
 
-- [ ] **Step 2: Write the failing photo-filing tests**
+- [x] **Step 2: Write the failing photo-filing tests**
 
 Create `tests/unit/test_file_photo.py`:
 
@@ -1832,7 +1834,7 @@ def test_rejects_bad_bin_arguments(downloads: Path, root: Path, bins) -> None:
     assert not root.exists()
 ```
 
-- [ ] **Step 3: Write the failing watcher test**
+- [x] **Step 3: Write the failing watcher test**
 
 Create `tests/unit/test_watch_downloads.py`:
 
@@ -1890,12 +1892,12 @@ def test_reports_each_new_photo_once_across_restarts(tmp_path: Path) -> None:
         process.wait()
 ```
 
-- [ ] **Step 4: Run the tests and verify failure**
+- [x] **Step 4: Run the tests and verify failure**
 
 Run: `uv run pytest tests/unit/test_file_photo.py tests/unit/test_watch_downloads.py -v`
 Expected: FAIL: `file_photo.py` not found (`FileNotFoundError` during collection), and the watcher test fails because the script does not exist.
 
-- [ ] **Step 5: Implement `.claude/skills/bin-review/scripts/file_photo.py`**
+- [x] **Step 5: Implement `.claude/skills/bin-review/scripts/file_photo.py`**
 
 ```python
 #!/usr/bin/env -S uv run --script
@@ -2085,7 +2087,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] **Step 6: Implement `.claude/skills/bin-review/scripts/watch_downloads.sh`**
+- [x] **Step 6: Implement `.claude/skills/bin-review/scripts/watch_downloads.sh`**
 
 ```bash
 #!/usr/bin/env bash
@@ -2128,17 +2130,17 @@ done
 
 Make both scripts executable: `chmod +x .claude/skills/bin-review/scripts/file_photo.py .claude/skills/bin-review/scripts/watch_downloads.sh`
 
-- [ ] **Step 7: Run the tests and verify they pass**
+- [x] **Step 7: Run the tests and verify they pass**
 
 Run: `uv run pytest tests/unit/test_file_photo.py tests/unit/test_watch_downloads.py -v`
 Expected: all tests PASS.
 
-- [ ] **Step 8: Verify the script runs standalone through uv**
+- [x] **Step 8: Verify the script runs standalone through uv**
 
 Run: `uv run --script .claude/skills/bin-review/scripts/file_photo.py --help`
 Expected: exit 0 and usage text naming `--bin LOCATION=IDS`, `--note`, and `--keep-original`.
 
-- [ ] **Step 9: Format, lint, run the full suite, and commit**
+- [x] **Step 9: Format, lint, run the full suite, and commit**
 
 ```bash
 uv run ruff format . && uv run ruff check . && uv run pytest
@@ -2162,7 +2164,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Consumes: Task 3 `partdb apply`; Task 4 `--expect-empty`, `verify status --unverified`; Task 5 `file_photo.py`, `watch_downloads.sh`.
 - Produces: the runbook a fresh session follows; README documentation of the new commands.
 
-- [ ] **Step 1: Write the failing documentation tests**
+- [x] **Step 1: Write the failing documentation tests**
 
 Append to `tests/unit/test_documented_commands.py`:
 
@@ -2197,12 +2199,12 @@ def test_bin_review_skill_covers_the_loop() -> None:
         assert required in skill
 ```
 
-- [ ] **Step 2: Run the tests and verify failure**
+- [x] **Step 2: Run the tests and verify failure**
 
 Run: `uv run pytest tests/unit/test_documented_commands.py -v`
 Expected: the two new tests FAIL (missing README text; `SKILL.md` not found).
 
-- [ ] **Step 3: Create `.claude/skills/bin-review/SKILL.md`**
+- [x] **Step 3: Create `.claude/skills/bin-review/SKILL.md`**
 
 ````markdown
 ---
@@ -2311,7 +2313,7 @@ Reading labels and markings from photos is inline work. External lookups (vendor
 5. Append what slowed the batch down, workarounds, and ideas to `$WORKING_DIR/Interests/Workshop/PartDB/bin-review-pilot-notes.md`.
 ````
 
-- [ ] **Step 4: Update the README**
+- [x] **Step 4: Update the README**
 
 In `README.md`, replace this block in "Physical Inventory Verification":
 
@@ -2372,12 +2374,12 @@ A plan lists each bin's complete intended contents:
 Every part recorded in a listed bin must be listed, removed, or listed in another bin of the same plan; otherwise the whole plan is rejected and nothing changes. `"verify": true` marks the listed bins verified in the same transaction, and `"create": true` on a bin creates it if it is missing. Search results label the nearest empty bins before and after each match, for example `nearest empty: 5A2 ↑ 5A4 ↓`.
 ````
 
-- [ ] **Step 5: Run the documentation tests and verify they pass**
+- [x] **Step 5: Run the documentation tests and verify they pass**
 
 Run: `uv run pytest tests/unit/test_documented_commands.py -v`
 Expected: all tests PASS.
 
-- [ ] **Step 6: Format, lint, run the full suite, and commit**
+- [x] **Step 6: Format, lint, run the full suite, and commit**
 
 ```bash
 uv run ruff format . && uv run ruff check . && uv run pytest
@@ -2400,7 +2402,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Consumes: everything above.
 - Produces: a merged, verified branch and consolidated agent memory.
 
-- [ ] **Step 1: Run the full local gate fresh**
+- [x] **Step 1: Run the full local gate fresh**
 
 ```bash
 uv sync --locked --all-extras
@@ -2412,7 +2414,7 @@ uv run pytest -v
 
 Expected: install succeeds; lint and format checks exit 0; every test passes.
 
-- [ ] **Step 2: Read-only smoke test against the real database**
+- [x] **Step 2: Read-only smoke test against the real database**
 
 Run `uv run partdb verify status` and record only the summary line. Pick one verified, non-empty bin from `uv run partdb verify status --all` and run `uv run partdb inventory --from <bin> --through <bin>`. Write a plan to the scratchpad that lists every one of its part IDs as `{"id": N}` with `"verify": false`, then run:
 
@@ -2422,16 +2424,16 @@ uv run partdb apply <scratchpad>/smoke-plan.json --dry-run
 
 Expected: only `=` lines, then `dry run: no changes made`. Then remove one ID from the plan and rerun with `--dry-run`. Expected: nonzero exit naming that part as not accounted for. Run `uv run partdb verify status` again; the summary line must be unchanged. Do not record real descriptions in any committed file.
 
-- [ ] **Step 3: Confirm nothing private is staged**
+- [x] **Step 3: Confirm nothing private is staged**
 
 Run: `git status --short`
 Expected: no photos, plans, CSVs, notes, or audit reports.
 
-- [ ] **Step 4: Whole-branch review gate**
+- [x] **Step 4: Whole-branch review gate**
 
 Invoke `superpowers:requesting-code-review` for a whole-branch review against the spec and this plan. Resolve findings with a failing test first, rerun Step 1, and commit the fixes.
 
-- [ ] **Step 5: Mark the spec and plan complete**
+- [x] **Step 5: Mark the spec and plan complete**
 
 In the spec, change `**Status:** Approved for planning` to `**Status:** Implemented`. In this plan, add `**Status:** Complete.` under the Spec line and tick every checkbox. Commit:
 
@@ -2442,7 +2444,7 @@ git commit -m "docs: mark bin-review workflow complete
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
-- [ ] **Step 6: Integrate**
+- [x] **Step 6: Integrate**
 
 Invoke `superpowers:finishing-a-development-branch` and open a pull request against `main`, as for PR #1. Wait for CI to pass and for Dan to approve the merge.
 
