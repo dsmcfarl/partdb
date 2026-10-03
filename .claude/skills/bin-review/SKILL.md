@@ -26,7 +26,7 @@ The local database is the real, authoritative inventory. This repository is publ
 
 1. **A photo arrives**, usually unannounced. Read the bin labels in the frame, then run `uv run partdb inventory --from <first> --through <last>` (or one bin twice) for those bins. If no label is visible, ask which bin it is. If the photo is not of a bin (a screenshot, an instrument screen), say so in one line and leave it in Downloads unfiled.
    - **Photo sets.** When Dan says he is sending N photos of a bin, wait for all N, then reply with one table for the set. When he doesn't give a count ("sending some photos"), ask him to say `done` when finished, and wait for it.
-2. **Look closely.** Downscale a copy for viewing (`sips -Z 2000 <photo> --out <scratchpad>/preview.jpg`; for HEIC add `-s format jpeg`). For colour bands, small markings, and part numbers, crop the full-resolution original with Pillow (`uv run --with pillow python ...`). Never file previews or crops.
+2. **Look closely.** Downscale a copy for viewing (`sips -Z 2000 <photo> --out <scratchpad>/preview.jpg`; for HEIC add `-s format jpeg`). For colour bands, small markings, and part numbers, crop the full-resolution original with Pillow (`uv run --with pillow python ...`), opening it with `ImageOps.exif_transpose(Image.open(path))` first: iPhone JPEGs are stored rotated, and an unrotated crop lands on the wrong region. `sips` previews are already oriented correctly. Never file previews or crops.
 3. **Reply with one table per photo** (or per photo set), and nothing after it that repeats or extends the rows:
 
    | Bin | ID | Action | Description | Confidence | Question |
