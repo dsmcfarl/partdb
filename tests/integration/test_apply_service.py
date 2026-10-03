@@ -306,3 +306,51 @@ def test_apply_does_not_commit_so_failures_roll_back(
 
     assert service.get_part(first.id).description == "washers"
     assert verified(service) == set()
+
+
+def test_move_out_with_description_renames_without_verifying_destination(
+    conn: psycopg.Connection, service: InventoryService
+) -> None:
+    renamed = service.add_part("4A3", "solder")
+    unchanged = service.add_part("4A3", "flux pen")
+    for part in (renamed, unchanged):
+        set_embedding(conn, part.id)
+
+    diff = service.plan_changes(
+        plan(
+            {
+                "verify": True,
+                "bins": {
+                    "4A3": {
+                        "parts": [],
+                        "remove": {
+                            str(renamed.id): {
+                                "move": "1D1",
+                                "description": "60/40 rosin-core solder",
+                            },
+                            str(unchanged.id): {
+                                "move": "1D1",
+                                "description": "flux pen",
+                            },
+                        },
+                    }
+                },
+            }
+        )
+    )
+    assert [
+        (change.kind, change.description, change.old_description)
+        for change in diff.bins[0].changes
+    ] == [
+        ("move_out", "60/40 rosin-core solder", "solder"),
+        ("move_out", "flux pen", None),
+    ]
+
+    service.apply_changes(diff)
+
+    moved = {part.id: part for part in service.list_parts("1D1")}
+    assert moved[renamed.id].description == "60/40 rosin-core solder"
+    assert moved[renamed.id].has_embedding is False
+    assert moved[unchanged.id].description == "flux pen"
+    assert moved[unchanged.id].has_embedding is True
+    assert verified(service) == {"4A3"}

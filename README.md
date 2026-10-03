@@ -141,7 +141,7 @@ A plan lists each bin's complete intended contents:
            "remove": {"14": "delete", "15": {"move": "5A2"}}}}}
 ```
 
-Every part recorded in a listed bin must be listed, removed, or listed in another bin of the same plan; otherwise the whole plan is rejected and nothing changes. `"verify": true` marks the listed bins verified in the same transaction, and `"create": true` on a bin creates it if it is missing. Search results label the nearest empty bins before and after each match, for example `nearest empty: 5A2 ↑ 5A4 ↓`.
+A `remove` move may add `"description"` to rename the part as it moves, without listing or verifying the destination bin. Every part recorded in a listed bin must be listed, removed, or listed in another bin of the same plan; otherwise the whole plan is rejected and nothing changes. `"verify": true` marks the listed bins verified in the same transaction, and `"create": true` on a bin creates it if it is missing. Search results label the nearest empty bins before and after each match, for example `nearest empty: 5A2 ↑ 5A4 ↓`.
 
 ## Private Data Audit
 

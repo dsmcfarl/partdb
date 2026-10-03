@@ -47,7 +47,7 @@ The local database is the real, authoritative inventory. This repository is publ
 
 ### Moving Parts Into a Bin Outside the Review
 
-`"verify": true` verifies every bin listed in the plan, so never list a destination bin Dan has not reviewed in this batch just to receive moved parts. Instead, apply the reviewed bins with `"verify": true`, sending the parts out with `"remove": {"<id>": {"move": "<bin>"}}`. Then, if moved or new parts need descriptions there, apply a second plan for the destination with `"verify": false`.
+`"verify": true` verifies every bin listed in the plan, so never list a destination bin Dan has not reviewed in this batch just to receive moved parts. Send parts out from the reviewed bin with `"remove": {"<id>": {"move": "<bin>"}}`, adding `"description"` to rename the part as it moves: `{"move": "1D1", "description": "60/40 rosin-core solder"}`. The destination is never verified this way. To add a brand-new part to a bin outside the review, run `uv run partdb add <bin> "<description>"`, which verifies nothing.
 
 ### Plan Format
 
@@ -66,7 +66,7 @@ A plan lists each bin's complete intended contents:
 
 - `{"id": N}` keeps a part; adding `description` updates it; no `id` adds a part.
 - Listing an `id` that is recorded in another bin moves it into this bin. Listing it in another bin of the same plan is enough to account for it in its source bin.
-- `remove` deletes a part or moves it to a bin outside the review.
+- `remove` deletes a part or moves it to a bin outside the review, optionally renaming it with `"description"`.
 - `"parts": []` means the bin must be empty.
 - `"create": true` creates a missing bin. Use it only after Dan approves creating that bin in the Question column.
 - Every recorded part in a listed bin must be accounted for, or `apply` rejects the whole plan and changes nothing. Use `--dry-run` if you want to check a plan first.

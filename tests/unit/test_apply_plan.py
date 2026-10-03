@@ -241,3 +241,89 @@ def test_renders_unicode_descriptions_verbatim() -> None:
         verify=False,
     )
     assert render_diff(diff) == ["4A3", '  = 1 "10µF — X7R"']
+
+
+def test_parses_move_with_description() -> None:
+    plan = parse_plan(
+        json.dumps(
+            {
+                "bins": {
+                    "4A3": {
+                        "parts": [],
+                        "remove": {"74": {"move": "1D1", "description": " solder "}},
+                    }
+                }
+            }
+        )
+    )
+    assert plan.bins[0].removals == (Removal(74, "1D1", "solder"),)
+
+
+@pytest.mark.parametrize(
+    ("remove", "problem"),
+    [
+        (
+            {"7": {"move": "1D1", "description": "  "}},
+            "4A3 remove 7: description cannot be blank",
+        ),
+        (
+            {"7": {"move": "1D1", "description": 5}},
+            "4A3 remove 7: description cannot be blank",
+        ),
+        (
+            {"7": {"move": "1D1", "note": "x"}},
+            "4A3 remove 7: unknown key 'note'",
+        ),
+        (
+            {"7": {"description": "solder"}},
+            '4A3 remove 7: must be "delete" or {"move": "<location>"}',
+        ),
+    ],
+)
+def test_rejects_invalid_move_descriptions(remove: dict, problem: str) -> None:
+    with pytest.raises(PlanError) as excinfo:
+        parse_plan(json.dumps({"bins": {"4A3": {"parts": [], "remove": remove}}}))
+    assert problem in excinfo.value.problems
+
+
+def test_rejects_move_description_into_a_listed_bin() -> None:
+    data = {
+        "bins": {
+            "4A3": {
+                "parts": [],
+                "remove": {"5": {"move": "4A4", "description": "solder"}},
+            },
+            "4A4": {"parts": [{"id": 5}]},
+        }
+    }
+    with pytest.raises(PlanError) as excinfo:
+        parse_plan(json.dumps(data))
+    assert (
+        "part 5 is moved to 4A4 by 4A3 with a description; "
+        "set it in 4A4's listing instead"
+    ) in excinfo.value.problems
+
+
+def test_renders_renamed_move_out() -> None:
+    diff = PlanDiff(
+        bins=(
+            BinDiff(
+                "4A3",
+                False,
+                (
+                    Change(
+                        "move_out",
+                        74,
+                        "60/40 rosin-core solder",
+                        old_description="solder",
+                        other_location="1D1",
+                    ),
+                ),
+            ),
+        ),
+        verify=False,
+    )
+    assert render_diff(diff) == [
+        "4A3",
+        '  > 74 "solder" -> 1D1 as "60/40 rosin-core solder"',
+    ]
