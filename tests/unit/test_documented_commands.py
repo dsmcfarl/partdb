@@ -103,6 +103,7 @@ def test_bin_review_skill_has_ad_hoc_bin_check() -> None:
         "| ID | Description |",
         "uv run partdb verify mark <bin> --yes",
         "otherwise verified",
+        "empty (used up)",
     ):
         assert required in skill
 

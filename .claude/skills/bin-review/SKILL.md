@@ -79,7 +79,7 @@ When Dan says a range is empty ("4B1–4B8 empty"), run:
 uv run partdb verify mark --from 4B1 --through 4B8 --expect-empty --yes
 ```
 
-If it reports recorded parts, show them to Dan; "empty" then means those records need deleting or moving, which needs his approval. If a bin he names is missing from the database, propose creating it.
+If it reports recorded parts and Dan said **"empty (used up)"**, that is his approval to delete them: apply a plan for those bins with `"parts": []`, each leftover record under `"remove"` as `"delete"`, and `"verify": true`, then confirm in one line listing what was deleted. If he said only "empty", put a delete row for each leftover record in your next table with the question "used up or moved?", and apply nothing until he answers. If a bin he names is missing from the database, propose creating it.
 
 ## Ad-hoc Bin Check
 
@@ -102,7 +102,7 @@ Show `(empty)` for an empty bin. Then:
 ## Dan's Rules
 
 - Be concise. Put every detail of an item in its table row. Ask questions only in the Question column, and only when uncertainty remains after examining the photo.
-- Never ask about quantities (they are not tracked) or whether a bag is empty, and never put counts in descriptions.
+- Never ask about quantities (they are not tracked) or whether a bag is empty, and never put counts in descriptions, including when describing mixed contents: write "glass and ceramic fuses", not "2 glass, 1 ceramic fuse".
 - Give no speculative guidance before a photo arrives.
 - Describe the item type, not its packaging state.
 - A marking on the part outranks a stale packaging label.
