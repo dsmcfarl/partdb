@@ -241,3 +241,10 @@ Recorded 2026-09-26, after PR #1 merged:
 - **Next phase:** the physical bin-review workflow. Broader product direction (web, mobile, or agent interfaces) is deferred until that workflow is settled.
 - **Euclid:** the Euclid `partdb` database remains available as a fallback until physical verification of the inventory is complete, and is shut down then.
 - **Scheduled backups:** deferred until the database's permanent host is decided. Until then, run `just backup` manually before modifying sessions.
+
+### Permanent Home (decided 2026-10-03)
+
+- **Host:** a dedicated always-on Debian lab computer running herdr sessions next to the shelves. Euclid is not used.
+- **Database:** SQLite on the lab computer, replacing PostgreSQL and pgvector. The data is small and has a single user, and sessions run on the same machine. A file database removes Docker, volume, and upgrade maintenance, makes backups file copies, and moves between machines by copying one file.
+- **Photos:** Taildrop (Tailscale file sharing) from the iPhone to the lab computer, received headless by `tailscale file get --wait --loop` into the folder the photo watcher watches. A trial to the Mac on 2026-10-03 arrived within seconds, with one more tap than AirDrop.
+- **Sequence:** finish physical verification of the remaining bins on the current setup, then migrate to SQLite as its own phase (it can run on the Mac first and move by file copy), then set up the lab computer as a separate phase. Scheduled backups are decided with the lab-computer setup.
